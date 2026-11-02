@@ -14,6 +14,7 @@ export default function DashboardPage({
   const risks = parseRisks(data?.risks_mitigations)
   const wins = splitLines(data?.key_wins)
   const milestone = data?.milestone_status || ''
+  const blockers = issues.filter((i) => i.status === 'Blocked')
 
   return (
     <Box sx={{ maxWidth: 1280, mx: 'auto', px: { xs: 2, sm: 3 }, py: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -100,9 +101,38 @@ export default function DashboardPage({
         </SectionCard>
       )}
 
-      {/* Risks + Key Wins (omitted when empty) */}
-      {(risks.length > 0 || wins.length > 0) && (
+      {/* Blockers + Risks + Key Wins (omitted when empty) */}
+      {(blockers.length > 0 || risks.length > 0 || wins.length > 0) && (
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+          {blockers.length > 0 && (
+            <SectionCard sx={{ borderLeft: '4px solid', borderLeftColor: '#ef4444' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, mb: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 17, color: '#f85149' }}>block</span>
+                  <Typography sx={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#f85149' }}>
+                    Blockers
+                  </Typography>
+                </Box>
+                <Box component="span" sx={{ px: 1, py: 0.25, borderRadius: 999, fontSize: 11, fontWeight: 700, color: '#f85149', bgcolor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                  {blockers.length} Open
+                </Box>
+              </Box>
+              <Box component="ul" sx={{ m: 0, pl: 2.5, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                {blockers.map((b) => (
+                  <Box component="li" key={b.key} sx={{ color: 'text.secondary' }}>
+                    <Typography sx={{ fontSize: 14, lineHeight: 1.55 }}>
+                      <Box component="span" className="mono" sx={{ color: 'text.primary', fontWeight: 600, mr: 0.75 }}>{b.key}</Box>
+                      <Box component="span" sx={{ color: 'text.primary', fontWeight: 600 }}>{b.summary}</Box>
+                      <Box component="span" sx={{ ml: 0.75, fontSize: 12 }}>
+                        · {b.story_points} pts{b.assignee ? ` · ${b.assignee}` : ''}
+                      </Box>
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </SectionCard>
+          )}
+
           {risks.length > 0 && (
             <SectionCard sx={{ borderLeft: '4px solid', borderLeftColor: '#ef4444' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, mb: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
