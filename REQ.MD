@@ -107,10 +107,13 @@ AI client ── spawns ── MCP server (stdio) ── fetch / generate ─┘
 |---|---|
 | Purpose | Simulate a Jira REST endpoint for local testing |
 | Tech | Python + FastAPI + Uvicorn |
-| Endpoint | `GET /rest/api/3/search` |
-| Response | JSON from **one of 4 randomly selected sprint datasets** per request (auth, payments, mobile beta, data migration), each with 5 issues (key, summary, status, story_points) plus narrative fields: `milestone_status` (single line), `risks_mitigations` (multi-line), `key_wins` (multi-line) |
+| Endpoints | `GET /rest/api/3/search` (JQL, `fields`, `startAt`/`maxResults`), `GET /rest/api/3/issue/{key}`, `GET /rest/api/3/myself`, `GET /rest/agile/1.0/sprint[?state=]`, `GET /rest/agile/1.0/sprint/{id}/issue` |
+| Response | Exact Jira v3 shapes: search returns `{expand, startAt, maxResults, total, issues[].{id, key, self, fields.{summary, status{name,statusCategory}, priority, assignee, labels, issuetype, project, created, updated, customfield_10016 (story points), sprint{id,name,state,goal}}}` |
+| JQL support | Pragmatic subset with AND/OR groups: `project`, `sprint` (incl. `sprint in openSprints()`), `status`, `statusCategory`, `assignee` (incl. `currentUser()`), `labels`, `summary`/`text ~`, `ORDER BY` tolerated; unknown clauses ignored |
+| Data | 4 sprints (3 closed + 1 active) with the original demo datasets as backlogs; sprint `goal` = the dashboard's milestone status |
+| Live board | The active sprint **evolves on every search**: random status transitions (To Do→In Progress→Done, In Progress⇄Blocked) and ±1 story-point jitter — metrics are random per call; completed sprints reset to a new cycle so metrics always move |
 | Port | 8000 |
-| Auth | None (prototype only) |
+| Auth | Authorization/API-key headers accepted and ignored (prototype only) |
 
 **Component 2: MCP Server**
 
@@ -126,10 +129,10 @@ AI client ── spawns ── MCP server (stdio) ── fetch / generate ─┘
 
 | Field | Detail |
 |---|---|
-| Description | "Fetch current sprint issues from the mock Jira REST API." |
-| Input | None |
-| Output | JSON string of issues |
-| Logic | HTTP GET to `http://localhost:8000/rest/api/3/search`; return response as JSON |
+| Description | "Fetch current sprint issues from the real Jira REST API shape." |
+| Input | None (fixed JQL: `sprint in openSprints() ORDER BY status ASC`) |
+| Output | Raw Jira v3 search response: `{startAt, maxResults, total, issues[].{key, fields.{summary, status, priority, assignee, customfield_10016, sprint}}}` — passed straight to `generate_dashboard` |
+| Logic | HTTP GET `http://127.0.0.1:8000/rest/api/3/search?jql=...&fields=...` (localhost never proxied) |
 | Error handling | If unreachable: auto-start the app once and retry; otherwise return an actionable error message |
 
 **Tool 2: `generate_dashboard`**
@@ -137,9 +140,9 @@ AI client ── spawns ── MCP server (stdio) ── fetch / generate ─┘
 | Field | Detail |
 |---|---|
 | Description | "Generate an HTML sprint health dashboard from Jira JSON and open it in the browser." |
-| Input | `jira_json` (string), `open_browser` (bool, optional, default `true`), `milestone_status` (string, optional, single line), `risks_mitigations` (string, optional, multi-line), `key_wins` (string, optional, multi-line) |
+| Input | `jira_json` (string), `open_browser` (bool, optional, default `true`), `milestone_status` / `risks_mitigations` / `key_wins` (strings, optional) |
 | Output | Dashboard URL + one-line summary ("…velocity 44.8%, 5 issues. Done.") — what the agent reports back |
-| Logic | 1. Parse JSON (array of issues, or object with `issues` array). 2. Compute total points, done points, velocity ratio. 3. If the narrative params are empty and `jira_json` is an object, default them from `milestone_status` / `risks_mitigations` / `key_wins` keys in the payload (explicit params win). 4. Write the payload to the shared file (`~/.cache/tpm-dashboard/dashboard_data.json`) that the app serves at `/data.json`. 5. Ensure the app is up (attach / auto-start). 6. If `open_browser`, open `http://localhost:5173` via `webbrowser.open()`. |
+| Logic | 1. Parse `jira_json`: raw Jira v3 response (`issues[].fields` → flat key/summary/status/`customfield_10016`→points) or a flat issue array. 2. Compute total points, done points, velocity ratio. 3. `milestone_status` defaults to the Jira sprint `goal`; `risks_mitigations`/`key_wins` come only from the agent's params (the Jira API has no such fields — empty = section omitted). 4. Write the payload to the shared file the app serves at `/data.json`. 5. Ensure the app is up (attach / auto-start). 6. If `open_browser`, open `http://localhost:5173` via `webbrowser.open()`. |
 | Error handling | Return an error if JSON is invalid; still write a fallback payload so the React app renders an error state. If `:5173` is unreachable, return an actionable error (start the app) |
 
 **Tool 3: `update_pdf`**
@@ -202,7 +205,7 @@ Visual style: dark background, clean sans-serif, card-based metrics. Rendering h
 | Distribution | GitHub Releases: one single-file executable per OS (Linux x86_64, Windows x86_64, macOS arm64), built by CI on every `v*` tag |
 | Portability | Runs on macOS, Linux, Windows (anywhere Python runs) |
 | No external services | No real Jira, no cloud, no API keys |
-| Code size | Python under 500 lines across all files; React frontend small and componentized |
+| Code size | Python under 700 lines across all files; React frontend small and componentized |
 | Logging | Startup banner (transport, addresses, mode) on stderr always; `--debug` for verbose tool/HTTP logging; stdout reserved for the MCP protocol |
 | Shutdown | Ctrl+C / SIGTERM terminate auto-started children (mock Jira, Vite) and exit; `stop.sh` stops everything including orphans |
 

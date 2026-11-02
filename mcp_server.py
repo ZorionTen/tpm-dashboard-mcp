@@ -8,6 +8,7 @@ import os
 import time
 import urllib.request
 import webbrowser
+from urllib.parse import quote
 
 from dashboard import (
     DASH_PORT,
@@ -50,16 +51,20 @@ def _build_payload(issues: list) -> dict:
 
 @mcp.tool()
 def fetch_jira_data() -> str:
-    """Fetch current sprint issues from the mock Jira REST API. No input. Returns JSON with issues (key, summary, status, story_points). Requires the app (./start.sh) — auto-starts it if not running."""
+    """Fetch current sprint issues from the real Jira REST API shape: runs JQL 'sprint in openSprints() ORDER BY status ASC' against GET /rest/api/3/search. Returns the raw Jira response {startAt, maxResults, total, issues[].{key, fields.{summary,status,priority,assignee,customfield_10016,sprint}}} — pass the WHOLE response to generate_dashboard. The live board evolves between calls (statuses/points change). Auto-starts the app if it's down."""
+    jql = quote("sprint in openSprints() ORDER BY status ASC")
+    fields = quote("summary,status,priority,assignee,labels,customfield_10016,sprint")
+    url = f"{JIRA_URL}?jql={jql}&fields={fields}&maxResults=50"
     try:
-        _dbg(f"GET {JIRA_URL}")
+        _dbg(f"GET {url}")
         # Never proxy localhost — the MCP client's env may set a system proxy
         # that mangles loopback responses.
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        with opener.open(JIRA_URL, timeout=5) as r:
+        with opener.open(url, timeout=5) as r:
             body = r.read().decode()
         try:
-            _dbg(f"→ 200, {len(json.loads(body).get('issues', []))} issues, {len(body)} bytes")
+            d = json.loads(body)
+            _dbg(f"→ 200, total={d.get('total')} issues, {len(body)} bytes")
         except Exception:
             _dbg(f"→ {len(body)} bytes")
         return body
@@ -68,7 +73,7 @@ def fetch_jira_data() -> str:
         ensure_app()
         try:
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-            with opener.open(JIRA_URL, timeout=5) as r:
+            with opener.open(url, timeout=5) as r:
                 return r.read().decode()
         except Exception as e2:
             return f"ERROR: mock Jira unreachable at {JIRA_URL} — start the app with ./start.sh ({e2})"
@@ -82,29 +87,43 @@ def generate_dashboard(
     risks_mitigations: str = "",
     key_wins: str = "",
 ) -> str:
-    """Generate an HTML sprint health dashboard from Jira JSON and open it in the browser. Input: jira_json (string) — a JSON array of issues or an object with an 'issues' array (the object may also carry milestone_status, risks_mitigations, key_wins, used as defaults); open_browser (bool, optional, default true) — set false to skip opening the browser; milestone_status (string, optional, single line), risks_mitigations (string, optional, multi-line), key_wins (string, optional, multi-line) — narrative sections shown on the dashboard (empty fields are omitted). Computes total/done points and velocity %, hands the payload to the running app, and returns the dashboard URL."""
+    """Generate an HTML sprint health dashboard from Jira JSON and open it in the browser. Input: jira_json (string) — a raw Jira REST search response (issues[].fields, e.g. from fetch_jira_data), or a plain array/object with flat {key,summary,status,story_points} issues. open_browser (bool, optional, default true). milestone_status (string, optional) — defaults to the Jira sprint goal when omitted; risks_mitigations and key_wins (strings, optional, multi-line) — the agent passes these from context (the Jira API has no such fields; empty = section omitted). Computes total/done points and velocity %, hands the payload to the app, and returns the dashboard URL."""
     error = None
     payload: dict
     try:
         data = json.loads(jira_json)
-        issues = data.get("issues") if isinstance(data, dict) else data
-        if not isinstance(issues, list):
-            raise ValueError("expected a JSON array of issues or an object with an 'issues' array")
+        raw = data.get("issues") if isinstance(data, dict) else data
+        if not isinstance(raw, list):
+            raise ValueError("expected a Jira search response with an 'issues' array (or a flat issue array)")
+        goal = ""
+        if raw and isinstance(raw[0], dict) and "fields" in raw[0]:
+            # Real Jira v3 shape: {key, fields:{summary,status,customfield_10016,sprint}}
+            issues = []
+            for i in raw:
+                f = i.get("fields") or {}
+                sp = f.get("sprint")
+                sp = sp[0] if isinstance(sp, list) and sp else sp
+                if not goal and isinstance(sp, dict):
+                    goal = sp.get("goal") or ""
+                issues.append({
+                    "key": i.get("key", ""),
+                    "summary": f.get("summary", ""),
+                    "status": (f.get("status") or {}).get("name", ""),
+                    "story_points": f.get("customfield_10016") or 0,
+                })
+        else:  # flat legacy shape
+            issues = raw
+            if isinstance(data, dict):
+                goal = data.get("milestone_status") or ""
         payload = _build_payload(issues)
-        # narrative fields: explicit params win, else default from the jira_json object
-        if isinstance(data, dict):
-            payload["milestone_status"] = milestone_status or data.get("milestone_status") or ""
-            payload["risks_mitigations"] = risks_mitigations or data.get("risks_mitigations") or ""
-            payload["key_wins"] = key_wins or data.get("key_wins") or ""
-        else:
-            payload["milestone_status"] = milestone_status
-            payload["risks_mitigations"] = risks_mitigations
-            payload["key_wins"] = key_wins
+        payload["milestone_status"] = milestone_status or goal
+        payload["risks_mitigations"] = risks_mitigations
+        payload["key_wins"] = key_wins
         _dbg(f"payload built: {payload['issue_count']} issues, {payload['total_points']} pts total, "
              f"{payload['done_points']} pts done, velocity {payload['velocity']}%, "
-             f"milestone={'yes' if payload['milestone_status'] else 'no'}, "
-             f"risks={'yes' if payload['risks_mitigations'] else 'no'}, "
-             f"wins={'yes' if payload['key_wins'] else 'no'}")
+             f"milestone={'goal' if goal else 'no'}, "
+             f"risks={'yes' if risks_mitigations else 'no'}, "
+             f"wins={'yes' if key_wins else 'no'}")
     except Exception as e:
         error = f"invalid jira_json: {e}"
         _log(f"generate_dashboard ERROR: {error}")
