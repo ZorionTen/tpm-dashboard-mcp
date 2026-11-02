@@ -20,6 +20,10 @@ export default function PdfPage({ data, stats, issues, printPending, onPrinted }
   const milestone = data?.milestone_status || '—'
   const generated = data?.generated_at || '—'
   const sysDate = String(generated).slice(0, 10).replaceAll('-', '')
+  const health = data?.health || { status: 'On Track', reasons: [] }
+  const healthColor =
+    health.status === 'Off Track' ? PAPER.err : health.status === 'At Risk' ? '#b45309' : PAPER.ok
+  const healthReasons = health.reasons?.length ? ` — ${health.reasons.join('; ')}` : ''
 
   // Export flow: navigate here, then open the browser print dialog.
   useEffect(() => {
@@ -97,12 +101,12 @@ export default function PdfPage({ data, stats, issues, printPending, onPrinted }
                 Executive Summary &amp; Milestone Trajectory
               </Typography>
             </Box>
-            <Box component="span" sx={{ px: 1.25, py: 0.5, borderRadius: '2px', bgcolor: PAPER.bg, color: PAPER.ok, fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              ● On Track for Release
+            <Box component="span" sx={{ px: 1.25, py: 0.5, borderRadius: '2px', bgcolor: PAPER.bg, color: healthColor, fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              ● {health.status}
             </Box>
           </Box>
           <Typography sx={{ fontSize: 15, lineHeight: 1.65 }}>
-            Sprint 24 core objective—<b>{milestone}</b>—is tracking to plan for the November 14 deployment window. Delivery pace sits at <b>{stats.velocity}%</b> with {stats.done_points} of {stats.total_points} points verified Done. {risks.length} material risk{risks.length === 1 ? '' : 's'} tracked with documented mitigations; {stats.counts.Blocked} ticket{stats.counts.Blocked === 1 ? '' : 's'} currently blocked.
+            Sprint 24 core objective—<b>{milestone}</b>—is <b>{health.status}</b>{healthReasons}. Delivery pace sits at <b>{stats.velocity}%</b> with {stats.done_points} of {stats.total_points} points verified Done. {risks.length} material risk{risks.length === 1 ? '' : 's'} tracked with documented mitigations; {stats.counts.Blocked} ticket{stats.counts.Blocked === 1 ? '' : 's'} currently blocked.
           </Typography>
         </Box>
 

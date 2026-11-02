@@ -92,6 +92,32 @@ def _capacity(issues: list) -> list:
     return sorted(out, key=lambda x: -x["load_pct"])
 
 
+def _health(issues: list, total: int, done_pts: int) -> dict:
+    """Simplified delivery health (explainable rule, no dates needed):
+    Off Track = blocked points > 25% of scope or velocity < 25%;
+    At Risk = any blocker; else On Track."""
+    blocked = [i for i in issues if i.get("status") == "Blocked"]
+    bpts = sum(int(i.get("story_points") or 0) for i in blocked)
+    velocity = round(done_pts / total * 100, 1) if total else 0.0
+    blocked_pct = round(bpts / total * 100, 1) if total else 0.0
+    if blocked_pct > 25 or velocity < 25:
+        status = "Off Track"
+    elif blocked:
+        status = "At Risk"
+    else:
+        status = "On Track"
+    reasons = []
+    if blocked:
+        reasons.append(f"{len(blocked)} blocked ticket{'s' if len(blocked) > 1 else ''} ({bpts} pts, {blocked_pct}% of scope)")
+    if velocity < 25:
+        reasons.append(f"velocity {velocity}% is below the 25% floor")
+    elif status != "On Track":
+        reasons.append(f"velocity {velocity}%")
+    if status == "On Track":
+        reasons = [f"velocity {velocity}%", "no blockers"]
+    return {"status": status, "reasons": reasons}
+
+
 def build_payload(issues: list, goal: str = "", milestone_status: str = "",
                   risks_mitigations: str = "", key_wins: str = "") -> dict:
     """Build the dashboard payload. Empty risks/wins are DERIVED from the board itself
@@ -112,5 +138,6 @@ def build_payload(issues: list, goal: str = "", milestone_status: str = "",
         "risks_source": "agent" if risks_mitigations else "derived",
         "wins_source": "agent" if key_wins else "derived",
         "team_capacity": _capacity(issues),
+        "health": _health(issues, total, done),
         "issues": issues,
     }

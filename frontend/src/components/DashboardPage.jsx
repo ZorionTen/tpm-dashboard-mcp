@@ -4,6 +4,12 @@ import IssueTable from './IssueTable'
 import TeamCapacityCard from './TeamCapacityCard'
 import { parseRisks, splitLines, sevColor } from '../utils'
 
+const HEALTH_COLOR = {
+  'On Track': { color: '#3fb950', border: 'rgba(34,197,94,0.3)', bg: 'rgba(34,197,94,0.1)' },
+  'At Risk': { color: '#f59e0b', border: 'rgba(245,158,11,0.35)', bg: 'rgba(245,158,11,0.1)' },
+  'Off Track': { color: '#f85149', border: 'rgba(239,68,68,0.35)', bg: 'rgba(239,68,68,0.1)' },
+}
+
 function SectionCard({ children, sx }) {
   return <Paper variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, ...sx }}>{children}</Paper>
 }
@@ -34,6 +40,22 @@ export default function DashboardPage({
                 <Box component="span" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#3fb950', animation: 'pulse 1.5s infinite' }} />
                 Live
               </Box>
+              {data?.health && (
+                <Box
+                  component="span"
+                  title={data.health.reasons.join(' · ')}
+                  sx={{
+                    display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.25,
+                    borderRadius: 999, fontSize: 11.5, fontWeight: 700,
+                    color: (HEALTH_COLOR[data.health.status] || HEALTH_COLOR['On Track']).color,
+                    bgcolor: (HEALTH_COLOR[data.health.status] || HEALTH_COLOR['On Track']).bg,
+                    border: `1px solid ${(HEALTH_COLOR[data.health.status] || HEALTH_COLOR['On Track']).border}`,
+                    cursor: 'help',
+                  }}
+                >
+                  {data.health.status}
+                </Box>
+              )}
             </Box>
             <Typography sx={{ mt: 0.25, display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', fontSize: 13 }}>
               Sprint 24 • Active Cycle
