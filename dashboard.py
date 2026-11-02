@@ -42,6 +42,13 @@ def payload_path() -> Path:
     return d / "dashboard_data.json"
 
 
+def pdf_path() -> Path:
+    """Where update_pdf writes the sprint health report PDF."""
+    d = Path.home() / ".cache" / "tpm-dashboard"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / "sprint-health-report.pdf"
+
+
 def static_dir() -> Path:
     return Path(sys._MEIPASS) / "frontend" if FROZEN else BASE / "frontend" / "dist"
 

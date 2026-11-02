@@ -34,10 +34,10 @@ AI client ── spawns ── MCP server (stdio) ── fetch / generate ─┘
 | Piece | Runs in | Started by |
 |---|---|---|
 | App: mock Jira `:8000` + dashboard `:5173` | one foreground process | you — `./start.sh` |
-| MCP server (2 tools, stdio) | child process | your AI client (Claude/OpenCode/Cursor) |
+| MCP server (4 tools, stdio) | child process | your AI client (Claude/OpenCode/Cursor) |
 | React dashboard | inside the app process | the app |
 
-Payload hand-over file: `~/.cache/tpm-dashboard/dashboard_data.json` (the MCP tool writes it, the app serves it at `/data.json`).
+The UI is the Google Stitch project **"Project Manager UI Dashboard"** ported to **React + MUI (Material UI)** — two pages: the dark dashboard and the light print-ready PDF layout (`#/pdf`). Payload hand-over file: `~/.cache/tpm-dashboard/dashboard_data.json` (the MCP tool writes it, the app serves it at `/data.json`).
 
 ---
 
@@ -71,7 +71,7 @@ xattr -d com.apple.quarantine tpm-dashboard-mcp-macos-arm64   # macOS Gatekeeper
 
 > *"Fetch the latest Jira data and generate a dashboard."*
 
-The agent calls the tools, your browser opens `http://localhost:5173`, and it replies with the URL and "Done."
+The agent calls the tools, your browser opens `http://localhost:5173`, and it replies with the URL and "Done." It can also produce the PDF report: `update_pdf` → `download_pdf`.
 
 **Try it without an AI client** (MCP Inspector):
 
@@ -133,7 +133,8 @@ Requires **Python 3.10+** and **Node 18+**.
 ```bash
 git clone https://github.com/ZorionTen/tpm-dashboard-mcp.git
 cd tpm-dashboard-mcp
-pip install -r requirements.txt        # mcp, fastapi, uvicorn
+pip install -r requirements.txt        # mcp, fastapi, uvicorn, playwright
+python -m playwright install chromium  # browser for the update_pdf tool (once)
 cd frontend && npm install && npm run build && cd ..   # one-time frontend build
 
 ./start.sh                             # the app (or: python main.py app)
@@ -219,14 +220,33 @@ To debug the MCP connection, add the flag to your client config:
 ./stop.sh     # MCP server, app, mock Jira (binary or source)
 ```
 
-## The two tools
+## The four tools
 
 | Tool | Input | Output |
 |---|---|---|
 | `fetch_jira_data` | none | JSON of sprint issues (`key`, `summary`, `status`, `story_points`) from `GET /rest/api/3/search`; auto-starts the app if it's down |
-| `generate_dashboard` | `jira_json` (string — issue array, or object with `issues`), `open_browser` (bool, optional, default `true`) | computes metrics, writes the payload for the app, returns the URL + summary ("…velocity 44.8%, 5 issues. Done.") |
+| `generate_dashboard` | `jira_json` (string — issue array, or object with `issues` + narrative fields), `open_browser` (bool, default `true`), `milestone_status` / `risks_mitigations` / `key_wins` (strings, optional) | computes metrics, writes the payload for the app, returns the URL + summary ("…velocity 44.8%, 5 issues. Done.") |
+| `update_pdf` | none | headless Chromium renders the `#/pdf` layout with the latest data → `~/.cache/tpm-dashboard/sprint-health-report.pdf` (+ path/size) |
+| `download_pdf` | none | JSON: `path`, `size_bytes`, `modified`, `mime_type` of the current PDF — agent flow: **`update_pdf` → `download_pdf`** |
 
-Dashboard shows: total points, done points, velocity %, issue count, completed issues, and a color-coded issue table (Done = green, In Progress = amber, Blocked = red). Invalid JSON produces a rendered error state instead of a crash.
+Dashboard shows: metric cards, Milestone Status, Risks & Mitigations (severity chips), Key Wins, and a color-coded issue table (Done = green, In Progress = amber, Blocked = red). Invalid JSON produces a rendered error state instead of a crash.
+
+## Dashboard controls (agreed behaviors)
+
+| Control | Behavior |
+|---|---|
+| **Export PDF** | navigates to the `#/pdf` report page, then opens the browser print dialog (also: floating *Print / Save PDF* strip on that page) |
+| **Log Risk** | modal form → appends a `Blocked` row to the table (session-local; auto-assigned key, points count toward totals) |
+| **Sync (refresh)** | re-fetches `/data.json` (latest generated payload) + toast |
+| **Sprint selector** | static label — "Sprint 24 (Current)" |
+| **Ticket links / open icons** | open `https://jira.example.com/browse/<KEY>` in a new tab (placeholder host) |
+| **Theme toggle** | dark ⇄ light + toast; filter chips + search filter the table client-side |
+
+## PDF report
+
+- **In the browser:** *Export PDF* → the print-ready report page → print dialog (or the page's *Print / Save PDF* button).
+- **From your agent:** ask *"update and download the PDF"* → agent calls `update_pdf` (fresh render from latest data) then `download_pdf` (gets the file path).
+- Prerequisite for `update_pdf`: Playwright Chromium once per machine — `npx playwright install chromium` (browser lives outside the executable in `~/.cache/ms-playwright`).
 
 ## Project layout
 
@@ -235,7 +255,7 @@ mock_jira.py                      FastAPI mock Jira (5 issues, port 8000)
 dashboard.py                      the app runtime: dashboard server (:5173), payload file, app lifecycle
 mcp_server.py                     MCPServer: two tools over stdio
 main.py                           CLI entry: app | start | mcp | mock-jira
-frontend/                         Vite + React app (App → MetricCard, IssueTable)
+frontend/                         Vite + React + MUI app — DashboardPage, PdfPage, IssueTable, AddBlockerDialog, KpiCard (Stitch design port)
 start.sh                          one command → the app (binary → ~/.local/bin → source fallback)
 stop.sh                           one command → stop everything
 dist/tpm-dashboard-mcp            the single executable file (gitignored — built via PyInstaller/CI)
@@ -253,6 +273,7 @@ REQ.MD                            Requirements document
 | "frontend not built" | `cd frontend && npm run build`, restart the app |
 | Port already in use | `./stop.sh` then start fresh |
 | MCP tools not visible in the client | Absolute path in config, restart the client, check its MCP logs |
+| `update_pdf` fails with missing Chromium | `npx playwright install chromium` (browser is installed once, outside the executable) |
 | Linux binary: `GLIBC_... not found` | Use the release asset (ubuntu-22.04 build) or build from source |
 
 ## Out of scope (future work)

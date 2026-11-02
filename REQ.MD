@@ -56,6 +56,8 @@ Technical Program Managers waste time manually pulling sprint data from Jira int
 | AC8 | The frontend is a Vite + React app rendered with components (not static HTML) | `frontend/src` contains React components rendering metrics and issue table |
 | AC9 | A release provides one executable per OS that runs the entire project with no Python/Node install | GitHub Release assets: Linux, Windows, macOS binaries; each runs `app` and `start` |
 | AC10 | The dashboard shows Milestone Status (single line), Risks & Mitigations (multi-line), and Key Wins (multi-line); empty fields are omitted | Visual inspection of rendered React UI; call generate with/without the fields |
+| AC11 | The MCP exposes `update_pdf` and `download_pdf`: update renders the PDF layout page headlessly to a PDF file; download returns its path/metadata | Call both via Inspector after generate_dashboard; a valid PDF file appears in `~/.cache/tpm-dashboard/` |
+| AC12 | The UI is the Stitch design ("Project Manager UI Dashboard") implemented in React + MUI: dashboard page and PDF layout page, with the agreed button behaviors (Export PDF → PDF page + print dialog; Log Risk → session-local modal; Sync → re-fetch `/data.json`; static sprint label; fake Jira links) | Visual comparison against the Stitch screens; click each control |
 
 ---
 
@@ -117,8 +119,8 @@ AI client ── spawns ── MCP server (stdio) ── fetch / generate ─┘
 | Purpose | Expose tools to an AI client via the Model Context Protocol |
 | Tech | Python + `mcp` SDK (`MCPServer`, v2) |
 | Transport | stdio (standard for local MCP servers) |
-| Tools | `fetch_jira_data` (no input) and `generate_dashboard` (JSON string + optional `open_browser`) |
-| Dependency | The app provides the data (`:8000`) and the dashboard (`:5173`); the MCP server attaches and may auto-start it |
+| Tools | `fetch_jira_data`, `generate_dashboard`, `update_pdf`, `download_pdf` |
+| Dependency | The app provides the data (`:8000`) and the dashboard (`:5173`); the MCP server attaches and may auto-start it. `update_pdf` needs Playwright Chromium (`npx playwright install chromium`) |
 
 **Tool 1: `fetch_jira_data`**
 
@@ -140,12 +142,30 @@ AI client ── spawns ── MCP server (stdio) ── fetch / generate ─┘
 | Logic | 1. Parse JSON (array of issues, or object with `issues` array). 2. Compute total points, done points, velocity ratio. 3. If the narrative params are empty and `jira_json` is an object, default them from `milestone_status` / `risks_mitigations` / `key_wins` keys in the payload (explicit params win). 4. Write the payload to the shared file (`~/.cache/tpm-dashboard/dashboard_data.json`) that the app serves at `/data.json`. 5. Ensure the app is up (attach / auto-start). 6. If `open_browser`, open `http://localhost:5173` via `webbrowser.open()`. |
 | Error handling | Return an error if JSON is invalid; still write a fallback payload so the React app renders an error state. If `:5173` is unreachable, return an actionable error (start the app) |
 
+**Tool 3: `update_pdf`**
+
+| Field | Detail |
+|---|---|
+| Description | "Regenerate the sprint health PDF report from the latest dashboard data." |
+| Input | None (data comes from the shared payload; call `generate_dashboard` first if empty) |
+| Output | Success message with PDF path + size, or an actionable error (incl. missing-Chromium hint) |
+| Logic | Ensure the app is up → headless Playwright Chromium opens `http://localhost:5173/#/pdf` → `page.pdf(format=Letter, print_background, prefer_css_page_size)` → writes `~/.cache/tpm-dashboard/sprint-health-report.pdf` |
+
+**Tool 4: `download_pdf`**
+
+| Field | Detail |
+|---|---|
+| Description | "Download the current sprint health PDF report." |
+| Input | None |
+| Output | JSON: `path`, `size_bytes`, `modified`, `mime_type` (agent copies/reads the file) |
+| Error handling | If no PDF exists: "call update_pdf first" |
+
 **Component 3: React Frontend**
 
 | Requirement | Detail |
 |---|---|
 | Purpose | Render the sprint health dashboard from generated JSON |
-| Tech | Vite + React (JavaScript, no TypeScript required for prototype) |
+| Tech | Vite + React with **MUI (Material UI)**; design ported from Google Stitch ("Project Manager UI Dashboard"); Inter/Roboto Mono/Material Symbols fonts |
 | Port | 5173, served by the app process (built `frontend/dist`, bundled in the executable) |
 | Data source | `/data.json` fetched at render time (written by the MCP tool, served from `~/.cache/tpm-dashboard/dashboard_data.json`) |
 | Components | `App` → `MetricCard`, `IssueTable` (one concern per component) |
@@ -178,11 +198,11 @@ Visual style: dark background, clean sans-serif, card-based metrics. Rendering h
 |---|---|
 | Setup time | Under 5 minutes from clone to running |
 | Runtime | Dashboard generation under 10 seconds (release mode: no build/dev-server step) |
-| Dependencies | Runtime: none beyond the executable (Python bundled by PyInstaller, React build bundled). Dev: Python 3.10+, Node 18+, 3 pip packages. Testing: one npm package (`@modelcontextprotocol/inspector`) |
+| Dependencies | Runtime: the executable (+ Playwright Chromium for `update_pdf`: `npx playwright install chromium`). Dev: Python 3.10+, Node 18+, 4 pip packages (`mcp`, `fastapi`, `uvicorn`, `playwright`). Testing: one npm package (`@modelcontextprotocol/inspector`) |
 | Distribution | GitHub Releases: one single-file executable per OS (Linux x86_64, Windows x86_64, macOS arm64), built by CI on every `v*` tag |
 | Portability | Runs on macOS, Linux, Windows (anywhere Python runs) |
 | No external services | No real Jira, no cloud, no API keys |
-| Code size | Python under 420 lines across all files; React frontend small and componentized |
+| Code size | Python under 500 lines across all files; React frontend small and componentized |
 | Logging | Startup banner (transport, addresses, mode) on stderr always; `--debug` for verbose tool/HTTP logging; stdout reserved for the MCP protocol |
 | Shutdown | Ctrl+C / SIGTERM terminate auto-started children (mock Jira, Vite) and exit; `stop.sh` stops everything including orphans |
 
@@ -230,6 +250,7 @@ These are listed as "future work" in the README to show product thinking without
 - [ ] `generate_dashboard` serves the React dashboard at `http://localhost:5173` and opens the browser
 - [ ] React app renders metrics cards and the color-coded issue table from `/data.json`
 - [ ] Single-file executable builds locally with PyInstaller and runs the `app` and `start` subcommands
+- [ ] `generate_dashboard` → `update_pdf` → `download_pdf` produces a valid PDF at `~/.cache/tpm-dashboard/sprint-health-report.pdf`
 - [ ] GitHub Release created by CI with Linux, Windows, and macOS executables
 - [ ] GitHub repo is public with a complete README
 - [ ] Loom video (10–15 min) recorded and linked

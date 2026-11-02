@@ -9,7 +9,16 @@ import time
 import urllib.request
 import webbrowser
 
-from dashboard import DASH_PORT, JIRA_PORT, _dbg, _log, ensure_app, payload_path, port_open
+from dashboard import (
+    DASH_PORT,
+    JIRA_PORT,
+    _dbg,
+    _log,
+    ensure_app,
+    payload_path,
+    pdf_path,
+    port_open,
+)
 from mcp.server.mcpserver import MCPServer
 
 mcp = MCPServer("tpm-dashboard")
@@ -121,6 +130,65 @@ def generate_dashboard(
         return f"ERROR: {error}. Fallback payload written; open {url} to see the error state."
     _log(f"Dashboard     : ready → {url}  (velocity {payload['velocity']}%)")
     return f"Dashboard ready at http://localhost:{DASH_PORT} — velocity {payload['velocity']}%, {payload['issue_count']} issues. Done."
+
+
+@mcp.tool()
+async def update_pdf() -> str:
+    """Regenerate the sprint health PDF report from the latest dashboard data (headless Chromium print of the PDF layout page). Call generate_dashboard first if there is no data yet. Returns the PDF file path and size; then call download_pdf to fetch it."""
+    data_file = payload_path()
+    if not data_file.is_file():
+        return "ERROR: no dashboard data yet — call generate_dashboard first, then update_pdf."
+    ensure_app()
+    if not port_open(DASH_PORT):
+        return f"ERROR: dashboard server not reachable on :{DASH_PORT}. Start the app (./start.sh) and retry."
+    out = pdf_path()
+    _log(f"update_pdf    : rendering http://localhost:{DASH_PORT}/#/pdf → {out}")
+    try:
+        # In a frozen (PyInstaller) build Playwright looks for browsers inside the
+        # bundle — point it at the standard user-level browser cache instead.
+        from pathlib import Path as _Path
+
+        os.environ.setdefault(
+            "PLAYWRIGHT_BROWSERS_PATH",
+            str(_Path.home() / ".cache" / "ms-playwright"),
+        )
+        from playwright.async_api import async_playwright
+
+        async with async_playwright() as p:
+            browser = await p.chromium.launch()
+            page = await browser.new_page()
+            await page.goto(f"http://localhost:{DASH_PORT}/#/pdf", wait_until="networkidle")
+            await page.wait_for_selector("article", timeout=10000)
+            await page.wait_for_timeout(700)  # let webfonts settle
+            await page.pdf(path=str(out), format="Letter",
+                           print_background=True, prefer_css_page_size=True)
+            await browser.close()
+    except Exception as e:
+        hint = ""
+        if "Executable" in str(e) or "install" in str(e).lower():
+            hint = " — Chromium missing, run: npx playwright install chromium"
+        _log(f"update_pdf FAILED: {e}{hint}")
+        return f"ERROR: PDF generation failed: {e}{hint}"
+    size = out.stat().st_size
+    _log(f"update_pdf    : done — {out} ({size} bytes)")
+    return f"PDF updated at {out} ({size} bytes). Call download_pdf to fetch it."
+
+
+@mcp.tool()
+def download_pdf() -> str:
+    """Download the current sprint health PDF report. Returns the file path, size, and modified time for the agent to copy/read. If no PDF exists yet, call update_pdf first for the latest."""
+    out = pdf_path()
+    if not out.is_file():
+        return "ERROR: no PDF yet — call update_pdf first to generate the latest report."
+    st = out.stat()
+    _log(f"download_pdf  : {out} ({st.st_size} bytes)")
+    return json.dumps({
+        "path": str(out),
+        "size_bytes": st.st_size,
+        "modified": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(st.st_mtime)),
+        "mime_type": "application/pdf",
+        "note": "copy or read this file — generate_dashboard + update_pdf refresh it",
+    }, indent=2)
 
 
 if __name__ == "__main__":

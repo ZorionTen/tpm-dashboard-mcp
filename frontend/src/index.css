@@ -1,198 +1,48 @@
 :root {
-  color-scheme: dark;
-}
-
-* {
-  box-sizing: border-box;
+  color-scheme: dark light;
 }
 
 body {
   margin: 0;
-  background: #0f1115;
-  color: #e6e8ee;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-.page {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 40px 24px;
+/* Material Symbols (as used by the Stitch design) */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+  font-size: 18px;
+  user-select: none;
 }
 
-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 24px;
+.mono {
+  font-family: 'Roboto Mono', ui-monospace, monospace;
 }
 
-h1 {
-  font-size: 24px;
-  margin: 0;
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 9999px;
 }
 
-.generated {
-  color: #7a8194;
-  font-size: 13px;
+/* Print: the PDF page is the document */
+@page {
+  size: Letter;
+  margin: 14mm;
 }
 
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 14px;
-  margin-bottom: 28px;
-}
-
-.card {
-  background: #181b22;
-  border: 1px solid #262b36;
-  border-radius: 10px;
-  padding: 18px 16px;
-}
-
-.card.accent {
-  border-color: #2f81f7;
-}
-
-.card-value {
-  font-size: 28px;
-  font-weight: 700;
-}
-
-.card.accent .card-value {
-  color: #2f81f7;
-}
-
-.card-label {
-  margin-top: 6px;
-  color: #7a8194;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.issues {
-  width: 100%;
-  border-collapse: collapse;
-  background: #181b22;
-  border: 1px solid #262b36;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.issues th,
-.issues td {
-  text-align: left;
-  padding: 12px 14px;
-  border-bottom: 1px solid #262b36;
-  font-size: 14px;
-}
-
-.issues th {
-  color: #7a8194;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.issues tr:last-child td {
-  border-bottom: none;
-}
-
-.key {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: #a5b3c9;
-}
-
-.badge {
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.badge.done {
-  background: rgba(46, 160, 67, 0.15);
-  color: #3fb950;
-}
-
-.badge.progress {
-  background: rgba(210, 153, 34, 0.15);
-  color: #d29922;
-}
-
-.badge.blocked {
-  background: rgba(248, 81, 73, 0.15);
-  color: #f85149;
-}
-
-.badge.todo {
-  background: rgba(122, 129, 148, 0.15);
-  color: #9aa1b2;
-}
-
-.banner {
-  background: #181b22;
-  border: 1px dashed #262b36;
-  border-radius: 10px;
-  padding: 24px;
-  color: #9aa1b2;
-  margin-bottom: 24px;
-}
-
-.banner.error {
-  border-color: #f85149;
-  color: #f85149;
-}
-
-.panel {
-  background: #181b22;
-  border: 1px solid #262b36;
-  border-radius: 10px;
-  padding: 16px 18px;
-  margin-bottom: 18px;
-}
-
-.panel h2 {
-  margin: 0 0 10px;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #7a8194;
-}
-
-.panel ul {
-  margin: 0;
-  padding-left: 18px;
-}
-
-.panel li {
-  font-size: 14px;
-  line-height: 1.65;
-}
-
-.panel.risks {
-  border-left: 3px solid #f85149;
-}
-
-.panel.wins {
-  border-left: 3px solid #3fb950;
-}
-
-.milestone-panel {
-  border-left: 3px solid #2f81f7;
-}
-
-.milestone {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: #a5b3c9;
-}
-
-footer {
-  margin-top: 32px;
-  color: #7a8194;
-  font-size: 12px;
-  text-align: center;
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
 }
