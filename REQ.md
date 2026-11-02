@@ -1,5 +1,7 @@
 # AI Productivity Utility: Requirements Document
 
+> **Original spec — superseded by the [README](README.md).** This document records the requirements as first written; where it and the README disagree (tool count, UI stack, features), the README describes the shipped product. See [AI_WORKFLOW.md](AI_WORKFLOW.md) for how AI was used to build it.
+
 **Product:** TPM Dashboard MCP Server
 **Chosen Option:** Option E (Project Health Dashboard) — delivered as an MCP tool, frontend in React, shipped as a single cross-platform executable
 **Author:** Zaid

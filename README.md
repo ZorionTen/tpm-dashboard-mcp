@@ -89,10 +89,12 @@ tpm-dashboard-mcp app
 
 Windows: `C:\Tools\tpm-dashboard-mcp.exe app`. **Ctrl+C stops everything** (both servers live in this one process).
 
-**4. One-time, only if you want the PDF tools** (`update_pdf`/`download_pdf`) — requires Node:
+> **30-second path, no AI client:** start the app → open **http://localhost:5173** — on first open the app pulls the live board itself and renders a full dashboard (metrics, health badge, blockers, risks, wins, team capacity). Ask the agent later to refresh it or produce the PDF.
+
+**4. One-time, only if you want the PDF tools** (`update_pdf`/`download_pdf`):
 
 ```bash
-npx playwright install chromium
+python -m playwright install chromium
 ```
 
 **5. Connect your AI client** (see below), then ask:
@@ -128,6 +130,20 @@ Add to `opencode.json` — global (`~/.config/opencode/opencode.json` or `openco
 - **Restart OpenCode** after saving.
 - Test: ask *"Fetch the latest Jira data and generate a dashboard."*
 
+**Running from a source checkout instead of the binary** (uses your venv's Python):
+
+```json
+{
+  "mcp": {
+    "tpm-dashboard": {
+      "type": "local",
+      "command": ["/abs/path/tpm-dashboard-mcp/.venv/bin/python", "/abs/path/tpm-dashboard-mcp/main.py", "start"],
+      "enabled": true
+    }
+  }
+}
+```
+
 ## Connect to Claude Desktop
 
 Edit Claude Desktop's config file:
@@ -149,6 +165,19 @@ Edit Claude Desktop's config file:
 
 - Windows: full path, e.g. `"C:\\Tools\\tpm-dashboard-mcp.exe"`.
 - **Fully quit and reopen Claude Desktop**, start the app (`tpm-dashboard-mcp app`), then ask for a dashboard. The 🔨 icon shows `tpm-dashboard` when connected.
+
+**From a source checkout instead of the binary:**
+
+```json
+{
+  "mcpServers": {
+    "tpm-dashboard": {
+      "command": "/abs/path/tpm-dashboard-mcp/.venv/bin/python",
+      "args": ["/abs/path/tpm-dashboard-mcp/main.py", "start"]
+    }
+  }
+}
+```
 
 Cursor and any other MCP client work the same way: command = the executable, args = `["start"]`, transport = stdio.
 
@@ -279,7 +308,19 @@ Dashboard shows: metric cards, Milestone Status, Risks & Mitigations (severity c
 
 - **In the browser:** *Export PDF* → the print-ready report page → print dialog (or the page's *Print / Save PDF* button).
 - **From your agent:** ask *"update and download the PDF"* → agent calls `update_pdf` (fresh render from latest data) then `download_pdf` (gets the file path).
-- Prerequisite for `update_pdf`: Playwright Chromium once per machine — `npx playwright install chromium` (browser lives outside the executable in `~/.cache/ms-playwright`).
+- Prerequisite for `update_pdf`: Playwright Chromium once per machine — `python -m playwright install chromium` for source installs, `npx playwright install chromium` if you have no Python (browser lives outside the executable).
+
+## Future work
+
+Deliberately unbuilt in this prototype (product boundaries, not oversights):
+
+- Real Jira authentication (OAuth / API tokens) and a configurable Jira base URL
+- Scheduled Friday report generation
+- Slack / email delivery of the dashboard
+- Sprint history + true burndown chart
+- Multi-sprint trend lines (velocity over time)
+- Real capacity numbers from calendars instead of the assumed 8 pts/person
+- Persistence, multi-user support, deployed hosting
 
 ## Project layout
 
@@ -307,7 +348,7 @@ REQ.md                            Requirements document (local project spec)
 | "frontend not built" | Source checkout only: `cd frontend && npm run build`, restart the app |
 | Port already in use | Ctrl+C the running app (or `./stop.sh` in a source checkout), start fresh |
 | MCP tools not visible in the client | Absolute path in config, restart the client, check its MCP logs |
-| `update_pdf` fails with missing Chromium | `npx playwright install chromium` (browser is installed once, outside the executable) |
+| `update_pdf` fails with missing Chromium | `python -m playwright install chromium` (browser is installed once, outside the executable) |
 | Linux binary: `GLIBC_... not found` | Use the release asset (ubuntu-22.04 build) or build from source |
 
 ---
