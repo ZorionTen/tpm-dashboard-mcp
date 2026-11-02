@@ -143,11 +143,14 @@ class _Handler(BaseHTTPRequestHandler):
             issues, goal = normalize_jira(data)
             f = payload_path()
             old = json.loads(f.read_text()) if f.is_file() else {}
+            # keep agent-passed narrative; re-derive anything the server generated
+            old_risks = "" if old.get("risks_source") == "derived" else old.get("risks_mitigations", "")
+            old_wins = "" if old.get("wins_source") == "derived" else old.get("key_wins", "")
             payload = build_payload(
                 issues,
                 goal=goal or old.get("milestone_status", ""),
-                risks_mitigations=old.get("risks_mitigations", ""),
-                key_wins=old.get("key_wins", ""),
+                risks_mitigations=old_risks,
+                key_wins=old_wins,
             )
             f.write_text(json.dumps(payload))
             _dbg(f"api/sync → {payload['issue_count']} issues, velocity {payload['velocity']}% (live)")

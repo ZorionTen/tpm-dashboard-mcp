@@ -30,7 +30,7 @@ DEBUG = os.environ.get("TPM_DEBUG") == "1"
 def banner() -> None:
     _log("MCP transport : stdio (no port/URL — your AI client spawns this process)")
     _log(f"Mock Jira API : http://127.0.0.1:{JIRA_PORT}/rest/api/3/search")
-    _log(f"Dashboard UI  : http://localhost:{DASH_PORT} (from ./start.sh — the app)")
+    _log(f"Dashboard UI  : http://localhost:{DASH_PORT} (from the app)")
     _log(f"logging       : stderr only; {'debug ON (--debug)' if DEBUG else 'normal (use --debug for verbose)'}")
 
 

@@ -258,7 +258,7 @@ To debug the MCP connection, add the flag to your client config:
 | Tool | Input | Output |
 |---|---|---|
 | `fetch_jira_data` | none (fixed JQL: `sprint in openSprints()`) | **raw Jira v3 search response** — `{total, issues[].fields{summary,status,priority,assignee,customfield_10016,sprint}}`; the active board evolves between calls, so metrics are random each fetch; auto-starts the app if it's down |
-| `generate_dashboard` | `jira_json` (raw Jira response **or** flat issue array), `open_browser` (bool, default `true`), `milestone_status` (defaults to the Jira sprint **goal**), `risks_mitigations` / `key_wins` (strings — agent passes these; Jira has no such fields) | computes metrics, writes the payload for the app, returns the URL + summary ("…velocity 44.8%, 5 issues. Done.") |
+| `generate_dashboard` | `jira_json` (raw Jira response **or** flat issue array), `open_browser` (bool, default `true`), `milestone_status` (defaults to the Jira sprint **goal**), `risks_mitigations` / `key_wins` (strings — **optional overrides**) | computes metrics and, when the narrative params are omitted, **derives them from the board**: every Blocked issue becomes a risk (severity from story points, with owner), Done issues become key wins; explicit params always win → payload → returns the URL + summary |
 | `update_pdf` | none | headless Chromium renders the `#/pdf` layout with the latest data → `~/.cache/tpm-dashboard/sprint-health-report.pdf` (+ path/size) |
 | `download_pdf` | none | JSON: `path`, `size_bytes`, `modified`, `mime_type` of the current PDF — agent flow: **`update_pdf` → `download_pdf`** |
 

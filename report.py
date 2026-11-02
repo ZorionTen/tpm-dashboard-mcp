@@ -38,6 +38,7 @@ def normalize_jira(data) -> tuple[list, str]:
                 "summary": f.get("summary", ""),
                 "status": (f.get("status") or {}).get("name", ""),
                 "story_points": f.get("customfield_10016") or 0,
+                "assignee": (f.get("assignee") or {}).get("displayName", ""),
             })
         return issues, goal
     if isinstance(data, dict):
@@ -45,8 +46,34 @@ def normalize_jira(data) -> tuple[list, str]:
     return raw, goal
 
 
+def _severity(points: int) -> str:
+    return "HIGH" if points >= 8 else "MED" if points >= 5 else "LOW"
+
+
+def derive_risks(issues: list) -> str:
+    """Risks straight from the board: every Blocked issue, plus large unstarted scope."""
+    lines = []
+    for i in issues:
+        pts, owner = int(i.get("story_points") or 0), i.get("assignee") or "unassigned"
+        if i.get("status") == "Blocked":
+            lines.append(f"- {i['summary']} ({_severity(pts)}): {pts} pts blocked, owner {owner}")
+        elif i.get("status") == "To Do" and pts >= 8:
+            lines.append(f"- {i['summary']} (MED): {pts} pts not started yet, owner {owner}")
+    return "\n".join(lines)
+
+
+def derive_wins(issues: list) -> str:
+    """Key wins straight from the board: every completed issue."""
+    return "\n".join(
+        f"- {i['summary']} ({int(i.get('story_points') or 0)} pts delivered)"
+        for i in issues if i.get("status") == "Done"
+    )
+
+
 def build_payload(issues: list, goal: str = "", milestone_status: str = "",
                   risks_mitigations: str = "", key_wins: str = "") -> dict:
+    """Build the dashboard payload. Empty risks/wins are DERIVED from the board itself
+    (Blocked → risks, Done → wins); explicit params always win."""
     pts = lambda i: int(i.get("story_points") or 0)
     total = sum(pts(i) for i in issues)
     done = sum(pts(i) for i in issues if i.get("status") == "Done")
@@ -58,7 +85,9 @@ def build_payload(issues: list, goal: str = "", milestone_status: str = "",
         "issue_count": len(issues),
         "completed_count": sum(1 for i in issues if i.get("status") == "Done"),
         "milestone_status": milestone_status or goal,
-        "risks_mitigations": risks_mitigations,
-        "key_wins": key_wins,
+        "risks_mitigations": risks_mitigations or derive_risks(issues),
+        "key_wins": key_wins or derive_wins(issues),
+        "risks_source": "agent" if risks_mitigations else "derived",
+        "wins_source": "agent" if key_wins else "derived",
         "issues": issues,
     }
