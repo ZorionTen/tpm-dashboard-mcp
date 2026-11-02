@@ -54,7 +54,7 @@ Technical Program Managers waste time manually pulling sprint data from Jira int
 | AC6 | The MCP server runs over stdio and connects to OpenCode (or any MCP client) | OpenCode calls the tool via natural language |
 | AC7 | The mock Jira server runs locally on port 8000 with no external dependencies | `tpm-dashboard-mcp mock-jira` starts without errors |
 | AC8 | The frontend is a Vite + React app rendered with components (not static HTML) | `frontend/src` contains React components rendering metrics and issue table |
-| AC9 | A release provides one executable per OS that runs the entire project with no Python/Node install | GitHub Release assets: Linux, Windows, macOS binaries; each runs `mock-jira` and `mcp` |
+| AC9 | A release provides one executable per OS that runs the entire project with no Python/Node install | GitHub Release assets: Linux, Windows, macOS binaries; each runs `app` and `start` |
 
 ---
 
@@ -64,36 +64,37 @@ Technical Program Managers waste time manually pulling sprint data from Jira int
 
 The solution has four components:
 
-1. **A mock Jira API** — a local server that returns fake sprint data so the prototype can run without real Jira credentials.
-2. **An MCP server** — exposes two tools to any MCP-compatible AI client: one to fetch Jira data, one to persist it and open the dashboard.
-3. **A React frontend** — a Vite + React app that reads the generated JSON and renders the health dashboard. Its production build is bundled into the executable.
+1. **The app** — one foreground process (started by `./start.sh`) hosting two servers: a mock Jira API (fake sprint data, no real Jira credentials) and the dashboard web server. Prints its addresses on start; Ctrl+C stops both.
+2. **An MCP server** — exposes two tools to any MCP-compatible AI client: one to fetch Jira data, one to hand the payload to the app and return the dashboard URL. Spawned by the AI client over stdio on connect ("MCP connects"); attaches to a running app, auto-starts one if the user skipped step 1.
+3. **A React frontend** — a Vite + React app that reads the generated JSON and renders the health dashboard. Its production build is bundled into the executable and served by the app.
 4. **The user's AI client** — OpenCode (or Claude Desktop, Cursor) — acts as the control plane. The user asks in natural language; the client calls the tools.
 
 **Packaging:** one entry point (`main.py`) is compiled with PyInstaller into a single cross-platform executable per OS (`tpm-dashboard-mcp`), with subcommands:
 
 ```
-tpm-dashboard-mcp start         → auto-starts mock Jira if needed, then stdio MCP server (default; what AI clients run)
+tpm-dashboard-mcp app           → THE APP: mock Jira :8000 + dashboard :5173, foreground (what ./start.sh runs)
+tpm-dashboard-mcp start         → stdio MCP server (default; what AI clients run) — attaches to the app, auto-starts it if down
 tpm-dashboard-mcp mock-jira     → FastAPI mock Jira on :8000 (standalone)
-tpm-dashboard-mcp mcp           → stdio MCP server only (no auto-start)
+tpm-dashboard-mcp mcp           → stdio MCP server only (starts nothing)
 ```
 
-**Architecture flow (release mode):**
+**Architecture flow (the target user flow):**
 
 ```
-User in OpenCode → "Generate a status dashboard from Jira"
-       ↓
-OpenCode agent calls MCP tools (stdio)
-       ↓
-tpm-dashboard-mcp (single executable)
-  ├─ Tool 1: fetch_jira_data() → HTTP GET → Mock Jira (localhost:8000)
-  └─ Tool 2: generate_dashboard(json) → computes metrics
-             → serves bundled React build + payload on :5173 (embedded server)
-             → opens browser at http://localhost:5173
-       ↓
-React app fetches /data.json → renders dashboard
+1. User starts the app        ./start.sh        → mock Jira :8000 + dashboard :5173 (stays running)
+2. User starts Claude/OpenCode (config: <executable> start)
+                             → client spawns MCP server (stdio) → connects, attaches to the app
+3. User asks for an update    → agent calls fetch_jira_data → JSON
+                             → agent calls generate_dashboard → payload written for the app
+                             → browser opens http://localhost:5173, agent replies with the URL + "Done."
 ```
 
-**Development mode:** running from source, `generate_dashboard` instead writes `frontend/public/data.json` and starts the Vite dev server (`npm run dev`, port 5173).
+```
+User ── ./start.sh ──▶ APP PROCESS ── mock Jira :8000 ──▶ React dashboard :5173
+                          ▲                                    ▲
+AI client ── spawns ── MCP server (stdio) ── fetch / generate ─┘
+                                          (shared payload file ~/.cache/tpm-dashboard/dashboard_data.json)
+```
 
 ### 5.2 Component Requirements
 
@@ -115,8 +116,8 @@ React app fetches /data.json → renders dashboard
 | Purpose | Expose tools to an AI client via the Model Context Protocol |
 | Tech | Python + `mcp` SDK (`MCPServer`, v2) |
 | Transport | stdio (standard for local MCP servers) |
-| Tools | `fetch_jira_data` (no input) and `generate_dashboard` (accepts JSON string) |
-| Dependency | Mock Jira must be running for `fetch_jira_data` to work |
+| Tools | `fetch_jira_data` (no input) and `generate_dashboard` (JSON string + optional `open_browser`) |
+| Dependency | The app provides the data (`:8000`) and the dashboard (`:5173`); the MCP server attaches and may auto-start it |
 
 **Tool 1: `fetch_jira_data`**
 
@@ -126,17 +127,17 @@ React app fetches /data.json → renders dashboard
 | Input | None |
 | Output | JSON string of issues |
 | Logic | HTTP GET to `http://localhost:8000/rest/api/3/search`; return response as JSON |
-| Error handling | Return an actionable error message if the mock server is unreachable |
+| Error handling | If unreachable: auto-start the app once and retry; otherwise return an actionable error message |
 
 **Tool 2: `generate_dashboard`**
 
 | Field | Detail |
 |---|---|
 | Description | "Generate an HTML sprint health dashboard from Jira JSON and open it in the browser." |
-| Input | `jira_json` (string) |
-| Output | Success message with file path / URL |
-| Logic | 1. Parse JSON (array of issues, or object with `issues` array). 2. Compute total points, done points, velocity ratio. 3. Serve the React build + payload on port 5173 (embedded static server in release mode; `frontend/public/data.json` + Vite dev server in dev mode). 4. Open `http://localhost:5173` via `webbrowser.open()`. |
-| Error handling | Return an error if JSON is invalid; still serve a payload so the React app renders an error state |
+| Input | `jira_json` (string), `open_browser` (bool, optional, default `true`) |
+| Output | Dashboard URL + one-line summary ("…velocity 44.8%, 5 issues. Done.") — what the agent reports back |
+| Logic | 1. Parse JSON (array of issues, or object with `issues` array). 2. Compute total points, done points, velocity ratio. 3. Write the payload to the shared file (`~/.cache/tpm-dashboard/dashboard_data.json`) that the app serves at `/data.json`. 4. Ensure the app is up (attach / auto-start). 5. If `open_browser`, open `http://localhost:5173` via `webbrowser.open()`. |
+| Error handling | Return an error if JSON is invalid; still write a fallback payload so the React app renders an error state. If `:5173` is unreachable, return an actionable error (start the app) |
 
 **Component 3: React Frontend**
 
@@ -144,8 +145,8 @@ React app fetches /data.json → renders dashboard
 |---|---|
 | Purpose | Render the sprint health dashboard from generated JSON |
 | Tech | Vite + React (JavaScript, no TypeScript required for prototype) |
-| Port | 5173 (embedded static server, or Vite in dev) |
-| Data source | `/data.json` fetched at render time |
+| Port | 5173, served by the app process (built `frontend/dist`, bundled in the executable) |
+| Data source | `/data.json` fetched at render time (written by the MCP tool, served from `~/.cache/tpm-dashboard/dashboard_data.json`) |
 | Components | `App` → `MetricCard`, `IssueTable` (one concern per component) |
 | Styling | Plain CSS (dark background, card-based metrics, clean sans-serif); no UI framework |
 | External deps | None at runtime — no CDN, no API calls from the browser |
@@ -177,7 +178,7 @@ Visual style: dark background, clean sans-serif, card-based metrics. Rendering h
 | Distribution | GitHub Releases: one single-file executable per OS (Linux x86_64, Windows x86_64, macOS arm64), built by CI on every `v*` tag |
 | Portability | Runs on macOS, Linux, Windows (anywhere Python runs) |
 | No external services | No real Jira, no cloud, no API keys |
-| Code size | Python under 300 lines across all files; React frontend small and componentized |
+| Code size | Python under 400 lines across all files; React frontend small and componentized |
 | Logging | Startup banner (transport, addresses, mode) on stderr always; `--debug` for verbose tool/HTTP logging; stdout reserved for the MCP protocol |
 | Shutdown | Ctrl+C / SIGTERM terminate auto-started children (mock Jira, Vite) and exit; `stop.sh` stops everything including orphans |
 
@@ -190,15 +191,16 @@ Visual style: dark background, clean sans-serif, card-based metrics. Rendering h
 | 1 | GitHub repository | Public repo: `tpm-dashboard-mcp` |
 | 2 | `mock_jira.py` | FastAPI mock Jira server |
 | 3 | `mcp_server.py` | MCP server with two tools |
-| 4 | `main.py` | Single CLI entry (`start` \| `mock-jira` \| `mcp`) used by both dev and packaging |
-| 5 | `frontend/` | Vite + React app (`src/App.jsx`, components, CSS) |
-| 6 | `requirements.txt` | Python dependencies |
-| 7 | `README.md` | Setup, architecture, how to connect to OpenCode/Claude Desktop, video link |
-| 8 | `.gitignore` | Exclude `frontend/public/data.json`, `node_modules/`, `__pycache__/`, `dist/`, `frontend/dist/` |
-| 9 | `start.sh` / `stop.sh` | One-command start (binary → source fallback launcher) and stop (kills MCP, mock Jira, Vite) |
-| 10 | Release workflow | `.github/workflows/release.yml` — PyInstaller single-file build on Linux/Windows/macOS, attached to a GitHub Release on every `v*` tag |
-| 11 | GitHub Release | Cross-platform executables downloadable from the Releases page |
-| 12 | Loom video (10–15 min) | Problem → demo → code walkthrough → connection to Parts 1–10 |
+| 4 | `dashboard.py` | The app runtime: dashboard server (`:5173`), shared payload file, app lifecycle (ensure/attach/spawn/stop) |
+| 5 | `main.py` | Single CLI entry (`app` \| `start` \| `mcp` \| `mock-jira`) used by both dev and packaging |
+| 6 | `frontend/` | Vite + React app (`src/App.jsx`, components, CSS) |
+| 7 | `requirements.txt` | Python dependencies |
+| 8 | `README.md` | Setup, architecture, how to connect to OpenCode/Claude Desktop, video link |
+| 9 | `.gitignore` | Exclude `frontend/public/data.json`, `node_modules/`, `__pycache__/`, `dist/`, `frontend/dist/` |
+| 10 | `start.sh` / `stop.sh` | One-command start (the app: launcher with binary → source fallback) and stop (kills MCP, app, mock Jira) |
+| 11 | Release workflow | `.github/workflows/release.yml` — PyInstaller single-file build on Linux/Windows/macOS, attached to a GitHub Release on every `v*` tag |
+| 12 | GitHub Release | Cross-platform executables downloadable from the Releases page |
+| 13 | Loom video (10–15 min) | Problem → demo → code walkthrough → connection to Parts 1–10 |
 
 ---
 
@@ -219,11 +221,11 @@ These are listed as "future work" in the README to show product thinking without
 
 ## 9. Definition of Done
 
-- [ ] `tpm-dashboard-mcp mock-jira` runs and returns JSON on port 8000
+- [ ] `./start.sh` starts the app (mock Jira on 8000 + dashboard on 5173) with printed addresses; Ctrl+C stops both
 - [ ] `mcp_server.py` exposes both tools and is verified via MCP Inspector / OpenCode
 - [ ] `generate_dashboard` serves the React dashboard at `http://localhost:5173` and opens the browser
 - [ ] React app renders metrics cards and the color-coded issue table from `/data.json`
-- [ ] Single-file executable builds locally with PyInstaller and runs both subcommands
+- [ ] Single-file executable builds locally with PyInstaller and runs the `app` and `start` subcommands
 - [ ] GitHub Release created by CI with Linux, Windows, and macOS executables
 - [ ] GitHub repo is public with a complete README
 - [ ] Loom video (10–15 min) recorded and linked

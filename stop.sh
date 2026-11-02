@@ -14,8 +14,8 @@ stop() { # $1 = pgrep/pkill pattern, $2 = label
   fi
 }
 
-stop 'tpm-dashboard-mcp($| (start|mcp|mock-jira))' 'MCP server / mock Jira (binary)'
-stop 'main[.]py ($|start |mcp |mock-jira)'         'MCP server / mock Jira (source)'
+stop 'tpm-dashboard-mcp($| (app|start|mcp|mock-jira))' 'MCP server / app / mock Jira (binary)'
+stop 'main[.]py ($|app |start |mcp |mock-jira)'        'MCP server / app / mock Jira (source)'
 stop 'node_modules/.bin/vite'                      'Vite dev server'
 
 sleep 1

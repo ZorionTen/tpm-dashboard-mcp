@@ -1,49 +1,27 @@
-"""MCP server: fetch_jira_data + generate_dashboard tools (stdio)."""
+"""MCP server: fetch_jira_data + generate_dashboard tools (stdio).
+
+The dashboard/mock live in the app process (./start.sh); this server only
+hands over payload JSON via the shared file and points the agent at the URL.
+"""
 import json
 import os
-import socket
-import subprocess
-import sys
-import threading
 import time
 import urllib.request
 import webbrowser
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 
+from dashboard import DASH_PORT, JIRA_PORT, _dbg, _log, ensure_app, payload_path, port_open
 from mcp.server.mcpserver import MCPServer
 
 mcp = MCPServer("tpm-dashboard")
-JIRA_URL = "http://127.0.0.1:8000/rest/api/3/search"
-DASH_PORT = 5173
-BASE = Path(__file__).resolve().parent
-FROZEN = getattr(sys, "frozen", False)
+JIRA_URL = f"http://127.0.0.1:{JIRA_PORT}/rest/api/3/search"
 DEBUG = os.environ.get("TPM_DEBUG") == "1"
 
 
-def _log(msg: str) -> None:
-    """Always-visible log line (stderr — stdout is the MCP protocol)."""
-    print(f"[tpm-dashboard] {msg}", file=sys.stderr, flush=True)
-
-
-def _dbg(msg: str) -> None:
-    """Verbose log line, only with --debug."""
-    if DEBUG:
-        print(f"[tpm-dashboard:debug] {msg}", file=sys.stderr, flush=True)
-
-
 def banner() -> None:
-    mode = "release — embedded static server" if FROZEN else "dev — writes public/data.json, spawns Vite"
     _log("MCP transport : stdio (no port/URL — your AI client spawns this process)")
-    _log(f"Mock Jira API : http://127.0.0.1:8000/rest/api/3/search")
-    _log(f"Dashboard UI  : http://localhost:{DASH_PORT} (served after generate_dashboard)")
-    _log(f"mode          : {mode}")
+    _log(f"Mock Jira API : http://127.0.0.1:{JIRA_PORT}/rest/api/3/search")
+    _log(f"Dashboard UI  : http://localhost:{DASH_PORT} (from ./start.sh — the app)")
     _log(f"logging       : stderr only; {'debug ON (--debug)' if DEBUG else 'normal (use --debug for verbose)'}")
-
-
-def _port_open(port: int) -> bool:
-    with socket.socket() as s:
-        return s.connect_ex(("127.0.0.1", port)) == 0
 
 
 def _build_payload(issues: list) -> dict:
@@ -61,90 +39,9 @@ def _build_payload(issues: list) -> dict:
     }
 
 
-def _static_dir() -> Path:
-    if FROZEN:
-        return Path(sys._MEIPASS) / "frontend"
-    return BASE / "frontend" / "dist"
-
-
-class _Handler(BaseHTTPRequestHandler):
-    payload: dict = {}
-    static: Path = _static_dir()
-
-    def log_message(self, *args) -> None:  # silence
-        pass
-
-    def _send(self, body: bytes, ctype: str, code: int = 200) -> None:
-        _dbg(f"HTTP GET {self.path} → {code} ({len(body)} bytes)")
-        self.send_response(code)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def do_GET(self) -> None:
-        path = self.path.split("?")[0]
-        if path == "/data.json":
-            return self._send(json.dumps(self.payload).encode(), "application/json")
-        f = self.static / (path.lstrip("/") or "index.html")
-        if not f.is_file():
-            f = self.static / "index.html"
-        if not f.is_file():
-            return self._send(b"frontend not built (run: npm run build)", "text/plain", 404)
-        ctype = "text/html" if f.suffix == ".html" else "application/octet-stream"
-        if f.suffix == ".js":
-            ctype = "text/javascript"
-        elif f.suffix == ".css":
-            ctype = "text/css"
-        self._send(f.read_bytes(), ctype)
-
-
-_vite_proc = None  # Popen of the Vite dev server we started (dev mode)
-
-
-def shutdown() -> None:
-    """Stop the Vite dev server we spawned (embedded server dies with the process)."""
-    global _vite_proc
-    if _vite_proc is not None and _vite_proc.poll() is None:
-        _log(f"Dashboard UI  : stopping Vite dev server (pid {_vite_proc.pid})")
-        _vite_proc.terminate()
-    _vite_proc = None
-
-
-def _serve_embedded(payload: dict) -> None:
-    _Handler.payload = payload
-    if _port_open(DASH_PORT):
-        _dbg(f"dashboard server already serving on :{DASH_PORT} — reusing (payload updated)")
-        return  # already serving
-    server = ThreadingHTTPServer(("127.0.0.1", DASH_PORT), _Handler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    _log(f"Dashboard UI  : embedded server started → http://localhost:{DASH_PORT}")
-
-
-def _start_vite() -> None:
-    global _vite_proc
-    if not _port_open(DASH_PORT):
-        _log(f"Dashboard UI  : Vite dev server not on :{DASH_PORT} — running npm run dev ...")
-        _vite_proc = subprocess.Popen(
-            ["npm", "run", "dev"],
-            cwd=BASE / "frontend",
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
-        for i in range(40):  # wait up to 20s for Vite
-            if _port_open(DASH_PORT):
-                _log(f"Dashboard UI  : Vite ready after ~{i * 0.5:.0f}s → http://localhost:{DASH_PORT}")
-                return
-            time.sleep(0.5)
-        _log(f"WARNING: Vite not up on :{DASH_PORT} after 20s")
-    else:
-        _dbg(f"Vite already on :{DASH_PORT} — reusing")
-
-
 @mcp.tool()
 def fetch_jira_data() -> str:
-    """Fetch current sprint issues from the mock Jira REST API. No input. Returns JSON with issues (key, summary, status, story_points). Requires the mock Jira server (tpm-dashboard-mcp mock-jira) to be running on port 8000."""
+    """Fetch current sprint issues from the mock Jira REST API. No input. Returns JSON with issues (key, summary, status, story_points). Requires the app (./start.sh) — auto-starts it if not running."""
     try:
         _dbg(f"GET {JIRA_URL}")
         with urllib.request.urlopen(JIRA_URL, timeout=5) as r:
@@ -156,12 +53,17 @@ def fetch_jira_data() -> str:
         return body
     except Exception as e:
         _log(f"fetch_jira_data FAILED: {e}")
-        return f"ERROR: mock Jira unreachable at {JIRA_URL}. Start it with: tpm-dashboard-mcp start ({e})"
+        ensure_app()
+        try:
+            with urllib.request.urlopen(JIRA_URL, timeout=5) as r:
+                return r.read().decode()
+        except Exception as e2:
+            return f"ERROR: mock Jira unreachable at {JIRA_URL} — start the app with ./start.sh ({e2})"
 
 
 @mcp.tool()
-def generate_dashboard(jira_json: str) -> str:
-    """Generate an HTML sprint health dashboard from Jira JSON and open it in the browser. Input: jira_json (string) — either a JSON array of issues or an object with an 'issues' array. Computes total/done points and velocity %, serves the React dashboard on port 5173, and opens it."""
+def generate_dashboard(jira_json: str, open_browser: bool = True) -> str:
+    """Generate an HTML sprint health dashboard from Jira JSON and open it in the browser. Input: jira_json (string) — a JSON array of issues or an object with an 'issues' array; open_browser (bool, optional, default true) — set false to skip opening the browser. Computes total/done points and velocity %, hands the payload to the running app, and returns the dashboard URL."""
     error = None
     payload: dict
     try:
@@ -178,27 +80,27 @@ def generate_dashboard(jira_json: str) -> str:
         payload = {"error": error, "issue_count": 0, "total_points": 0, "done_points": 0,
                    "velocity": 0, "completed_count": 0, "issues": []}
 
+    f = payload_path()
+    f.write_text(json.dumps(payload))
+    _dbg(f"payload written → {f}")
+    ensure_app()
     url = f"http://localhost:{DASH_PORT}"
-    if FROZEN:
-        _serve_embedded(payload)
-        where = "embedded server"
-    else:  # dev: write payload for Vite, run the dev server
-        pub = BASE / "frontend" / "public"
-        pub.mkdir(exist_ok=True)
-        (pub / "data.json").write_text(json.dumps(payload))
-        _dbg(f"payload written → {pub / 'data.json'}")
-        _start_vite()
-        where = str(pub / "data.json")
-    time.sleep(0.3)
-    try:
-        opened = webbrowser.open(url)
-        _dbg(f"webbrowser.open({url}) → {opened}")
-    except Exception as e:
-        _dbg(f"webbrowser.open failed: {e} (open {url} manually)")
+    time.sleep(0.2)
+
+    if not port_open(DASH_PORT):
+        return f"ERROR: dashboard server not reachable on :{DASH_PORT}. Start the app (./start.sh) and retry."
+    if open_browser:
+        try:
+            opened = webbrowser.open(url)
+            _dbg(f"webbrowser.open({url}) → {opened}")
+        except Exception as e:
+            _dbg(f"webbrowser.open failed: {e} (open {url} manually)")
+    else:
+        _dbg("open_browser=false — skipping browser launch")
     if error:
         return f"ERROR: {error}. Fallback payload written; open {url} to see the error state."
-    _log(f"Dashboard     : ready → {url}  (velocity {payload['velocity']}%, {where})")
-    return f"Dashboard ready at {url} ({where}, velocity {payload['velocity']}%)"
+    _log(f"Dashboard     : ready → {url}  (velocity {payload['velocity']}%)")
+    return f"Dashboard ready at http://localhost:{DASH_PORT} — velocity {payload['velocity']}%, {payload['issue_count']} issues. Done."
 
 
 if __name__ == "__main__":
