@@ -99,6 +99,18 @@ class _Handler(BaseHTTPRequestHandler):
         self._send(f.read_bytes(), ctype)
 
 
+_vite_proc = None  # Popen of the Vite dev server we started (dev mode)
+
+
+def shutdown() -> None:
+    """Stop the Vite dev server we spawned (embedded server dies with the process)."""
+    global _vite_proc
+    if _vite_proc is not None and _vite_proc.poll() is None:
+        _log(f"Dashboard UI  : stopping Vite dev server (pid {_vite_proc.pid})")
+        _vite_proc.terminate()
+    _vite_proc = None
+
+
 def _serve_embedded(payload: dict) -> None:
     _Handler.payload = payload
     if _port_open(DASH_PORT):
@@ -110,9 +122,10 @@ def _serve_embedded(payload: dict) -> None:
 
 
 def _start_vite() -> None:
+    global _vite_proc
     if not _port_open(DASH_PORT):
         _log(f"Dashboard UI  : Vite dev server not on :{DASH_PORT} — running npm run dev ...")
-        subprocess.Popen(
+        _vite_proc = subprocess.Popen(
             ["npm", "run", "dev"],
             cwd=BASE / "frontend",
             stdout=subprocess.DEVNULL,

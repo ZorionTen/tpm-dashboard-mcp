@@ -179,6 +179,7 @@ Visual style: dark background, clean sans-serif, card-based metrics. Rendering h
 | No external services | No real Jira, no cloud, no API keys |
 | Code size | Python under 300 lines across all files; React frontend small and componentized |
 | Logging | Startup banner (transport, addresses, mode) on stderr always; `--debug` for verbose tool/HTTP logging; stdout reserved for the MCP protocol |
+| Shutdown | Ctrl+C / SIGTERM terminate auto-started children (mock Jira, Vite) and exit; `stop.sh` stops everything including orphans |
 
 ---
 
@@ -194,9 +195,10 @@ Visual style: dark background, clean sans-serif, card-based metrics. Rendering h
 | 6 | `requirements.txt` | Python dependencies |
 | 7 | `README.md` | Setup, architecture, how to connect to OpenCode/Claude Desktop, video link |
 | 8 | `.gitignore` | Exclude `frontend/public/data.json`, `node_modules/`, `__pycache__/`, `dist/`, `frontend/dist/` |
-| 9 | Release workflow | `.github/workflows/release.yml` — PyInstaller single-file build on Linux/Windows/macOS, attached to a GitHub Release on every `v*` tag |
-| 10 | GitHub Release | Cross-platform executables downloadable from the Releases page |
-| 11 | Loom video (10–15 min) | Problem → demo → code walkthrough → connection to Parts 1–10 |
+| 9 | `start.sh` / `stop.sh` | One-command start (binary → source fallback launcher) and stop (kills MCP, mock Jira, Vite) |
+| 10 | Release workflow | `.github/workflows/release.yml` — PyInstaller single-file build on Linux/Windows/macOS, attached to a GitHub Release on every `v*` tag |
+| 11 | GitHub Release | Cross-platform executables downloadable from the Releases page |
+| 12 | Loom video (10–15 min) | Problem → demo → code walkthrough → connection to Parts 1–10 |
 
 ---
 

@@ -216,6 +216,18 @@ The flag can go anywhere in the args. To debug your MCP client connection, add i
 
 The client's MCP logs (OpenCode: MCP logs; Claude Desktop: `~/Library/Logs/Claude/mcp*.log` on macOS) then show exactly what the server did.
 
+## Stopping
+
+**Ctrl+C works** — SIGINT/SIGTERM are handled explicitly: the MCP process logs `signal SIGINT received — shutting down`, terminates any mock Jira / Vite it auto-started, and exits (the embedded dashboard server lives inside the MCP process and dies with it).
+
+To stop *everything*, including leftovers from crashed/aborted runs (orphaned mock Jira, stale Vite):
+
+```bash
+./stop.sh        # kills: MCP server, mock Jira (binary or source), Vite dev server
+```
+
+Next `./start.sh` (or your AI client) brings it all back up.
+
 ## The two tools
 
 | Tool | Input | Output |
@@ -232,6 +244,7 @@ mock_jira.py                      FastAPI mock Jira (5 issues, port 8000)
 mcp_server.py                     MCPServer: two tools over stdio + embedded static server
 main.py                           CLI entry: start | mock-jira | mcp (used by dev and packaging)
 start.sh                          One-command launcher (binary → ~/.local/bin → source fallback)
+stop.sh                           One-command stopper: MCP, mock Jira, Vite (everything start.sh runs)
 dist/tpm-dashboard-mcp            The single executable file (gitignored — built via PyInstaller/CI)
 frontend/                         Vite + React app (App → MetricCard, IssueTable)
 .github/workflows/release.yml     Release: PyInstaller on Linux/Windows/macOS
