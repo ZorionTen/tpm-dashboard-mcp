@@ -7,3 +7,4 @@ build/
 node_modules/
 frontend/dist/
 frontend/public/data.json
+/rel_*.png
