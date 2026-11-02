@@ -63,4 +63,13 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          body: |
+            **Install (no build required):** download the binary for your OS →
+            Linux: `sudo install -m 755 <file> /usr/local/bin/tpm-dashboard-mcp` ·
+            macOS: `xattr -d com.apple.quarantine <file> || true` then the same `install` ·
+            Windows: keep the `.exe` anywhere (e.g. `C:\Tools`).
+            **Run:** `tpm-dashboard-mcp app` (Ctrl+C stops) → connect your AI client with
+            `command: ["/usr/local/bin/tpm-dashboard-mcp", "start"]`.
+            **PDF tools (optional):** `npx playwright install chromium`. Full details in the README.
+            *Prototype — not a production application.*
           files: release/*

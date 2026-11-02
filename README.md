@@ -4,7 +4,7 @@
 
 **Part 11 — AI Productivity Utility · Prototype (MVP)**
 
-> **⚠️ Prototype — not a production application.** Mock Jira data, no authentication, no persistence, no database, no deployment, no SLAs. It demonstrates the concept end-to-end and nothing more — see [Out of scope](#out-of-scope-future-work).
+> **⚠️ Prototype — not a production application.** Mock Jira data, no authentication, no persistence, no database, no deployment, no SLAs. It demonstrates the concept end-to-end and nothing more.
 
 ## Problem
 
@@ -45,24 +45,28 @@ The UI is the Google Stitch project **"Project Manager UI Dashboard"** ported to
 
 ## Quick start — run it without building
 
-The Releases page ships **one executable per OS** (Linux, Windows, macOS) — no Python, no Node, no clone, **no `start.sh`** (that script only exists for source checkouts).
+The [Releases page](../../releases/latest) ships **one executable per OS** (Linux, Windows, macOS) — no Python or Node needed to run it (Node is only optional, for the PDF tools and Inspector, noted below). No clone, **no `start.sh`** (that script only exists for source checkouts).
 
-**1. Download** the executable for your OS from the [Releases page](../../releases) (current: `v0.4.0`):
+**1. Download** the executable for your OS from the [latest release](../../releases/latest), **2. install it to a fixed path** (the client configs below use `/usr/local/bin`):
 
-| OS | File |
-|---|---|
-| Linux x86_64 | `tpm-dashboard-mcp-linux-x86_64` |
-| Windows x86_64 | `tpm-dashboard-mcp-windows-x86_64.exe` |
-| macOS (Apple Silicon) | `tpm-dashboard-mcp-macos-arm64` |
+| OS | File | Install |
+|---|---|---|
+| Linux x86_64 | `tpm-dashboard-mcp-linux-x86_64` | see below |
+| Windows x86_64 | `tpm-dashboard-mcp-windows-x86_64.exe` | see below — runs as-is |
+| macOS (Apple Silicon) | `tpm-dashboard-mcp-macos-arm64` | see below |
+| macOS (Intel) | — no binary | [build from source](#build-and-run-from-source-development) |
 
 **2. Install it to a fixed path** (the client configs below use `/usr/local/bin`):
+
+Run these **in the directory you downloaded to** (e.g. `~/Downloads`):
 
 ```bash
 # Linux
 sudo install -m 755 tpm-dashboard-mcp-linux-x86_64 /usr/local/bin/tpm-dashboard-mcp
 
-# macOS (Apple Silicon): clear Gatekeeper first, then install
-xattr -d com.apple.quarantine tpm-dashboard-mcp-macos-arm64
+# macOS (Apple Silicon): clear Gatekeeper (skip the xattr line if it errors
+# with "No such xattr" — the file has no quarantine attribute), then install
+xattr -d com.apple.quarantine tpm-dashboard-mcp-macos-arm64 || true
 sudo install -m 755 tpm-dashboard-mcp-macos-arm64 /usr/local/bin/tpm-dashboard-mcp
 ```
 
@@ -87,7 +91,11 @@ tpm-dashboard-mcp app
 
 Windows: `C:\Tools\tpm-dashboard-mcp.exe app`. **Ctrl+C stops everything** (both servers live in this one process).
 
-**4. One-time, only for the PDF tools:** `npx playwright install chromium`
+**4. One-time, only if you want the PDF tools** (`update_pdf`/`download_pdf`) — requires Node:
+
+```bash
+npx playwright install chromium
+```
 
 **5. Connect your AI client** (see below), then ask:
 
@@ -95,7 +103,7 @@ Windows: `C:\Tools\tpm-dashboard-mcp.exe app`. **Ctrl+C stops everything** (both
 
 The agent calls the tools, your browser opens `http://localhost:5173`, and it replies with the URL and "Done." It can also produce the PDF report: `update_pdf` → `download_pdf`.
 
-**Try it without an AI client** (MCP Inspector):
+**Try it without an AI client** (MCP Inspector — also requires Node):
 
 ```bash
 npx @modelcontextprotocol/inspector tpm-dashboard-mcp start
@@ -239,9 +247,9 @@ To debug the MCP connection, add the flag to your client config:
 
 ## Stopping
 
-- **Ctrl+C in the app terminal** (`tpm-dashboard-mcp app`) stops everything — both servers live in that one process. On Windows: `Ctrl+C` or `taskkill /IM tpm-dashboard-mcp.exe`.
+- **Ctrl+C in the app terminal** (`tpm-dashboard-mcp app`) stops everything — both servers live in that one process. On Windows: `Ctrl+C` or `taskkill /IM tpm-dashboard-mcp.exe`. That's the full stop for binary users; no script needed.
 - The MCP server handles Ctrl+C/SIGTERM too, and terminates any app *it* auto-started.
-- To stop everything including strays (source checkouts):
+- Source checkouts can also sweep strays (old runs, stale Vite) with:
 
 ```bash
 ./stop.sh     # MCP server, app, mock Jira (binary or source)
@@ -295,7 +303,7 @@ REQ.md                            Requirements document (local project spec)
 
 | Symptom | Fix |
 |---|---|
-| Browser: `connection refused` on `:5173` | App not running → `tpm-dashboard-mcp app`, then ask the agent to generate again |
+| Browser: `connection refused` on `:5173` | The tools auto-start the app when called — just ask the agent to generate once (or run `tpm-dashboard-mcp app` yourself) |
 | Dashboard says "no data yet" | `generate_dashboard` hasn't run in this session → ask the agent once |
 | `fetch_jira_data` returns an error | App's mock Jira down → start the app (the tool also retries after auto-start) |
 | "frontend not built" | Source checkout only: `cd frontend && npm run build`, restart the app |
@@ -303,20 +311,6 @@ REQ.md                            Requirements document (local project spec)
 | MCP tools not visible in the client | Absolute path in config, restart the client, check its MCP logs |
 | `update_pdf` fails with missing Chromium | `npx playwright install chromium` (browser is installed once, outside the executable) |
 | Linux binary: `GLIBC_... not found` | Use the release asset (ubuntu-22.04 build) or build from source |
-
-## Out of scope (future work)
-
-> Reminder: this repository is a **prototype**, not a production application — everything below is intentionally unbuilt.
-
-- Real Jira auth (OAuth/API tokens) and live sync
-- Persistence, multi-user, deployed hosting
-- Scheduled/automatic report generation
-- Slack/email delivery of the dashboard
-- Code signing / notarization of release binaries
-
-## Video
-
-Loom walkthrough: _link pending_
 
 ---
 
