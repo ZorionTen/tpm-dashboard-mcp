@@ -4,7 +4,7 @@
 **Chosen Option:** Option E (Project Health Dashboard) — delivered as an MCP tool, frontend in React, shipped as a single cross-platform executable
 **Author:** Zaid
 **Date:** November 2026
-**Status:** Prototype (MVP)
+**Status:** Prototype (MVP) — **not a production application** (mock data, no auth, no persistence, no deployment; see Out of Scope)
 **Audience:** Developer / AI-assisted build (Cursor, Claude Code)
 
 ---
@@ -224,7 +224,7 @@ Visual style: dark background, clean sans-serif, card-based metrics. Rendering h
 | 7 | `requirements.txt` | Python dependencies |
 | 8 | `README.md` | Setup, architecture, how to connect to OpenCode/Claude Desktop, video link |
 | 9 | `.gitignore` | Exclude `frontend/public/data.json`, `node_modules/`, `__pycache__/`, `dist/`, `frontend/dist/` |
-| 10 | `start.sh` / `stop.sh` | One-command start (the app: launcher with binary → source fallback) and stop (kills MCP, app, mock Jira) |
+| 10 | `start.sh` / `stop.sh` | Source-checkout conveniences (start the app / stop everything). **Not required for binary-only use** — the single executable's `app` subcommand does the same |
 | 11 | Release workflow | `.github/workflows/release.yml` — PyInstaller single-file build on Linux/Windows/macOS, attached to a GitHub Release on every `v*` tag |
 | 12 | GitHub Release | Cross-platform executables downloadable from the Releases page |
 | 13 | Loom video (10–15 min) | Problem → demo → code walkthrough → connection to Parts 1–10 |
@@ -248,7 +248,7 @@ These are listed as "future work" in the README to show product thinking without
 
 ## 9. Definition of Done
 
-- [ ] `./start.sh` starts the app (mock Jira on 8000 + dashboard on 5173) with printed addresses; Ctrl+C stops both
+- [ ] `tpm-dashboard-mcp app` (single command, release binary — no build) starts both servers with printed addresses; Ctrl+C stops both
 - [ ] `mcp_server.py` exposes both tools and is verified via MCP Inspector / OpenCode
 - [ ] `generate_dashboard` serves the React dashboard at `http://localhost:5173` and opens the browser
 - [ ] React app renders metrics cards and the color-coded issue table from `/data.json`

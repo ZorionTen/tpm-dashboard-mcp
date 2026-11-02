@@ -4,6 +4,8 @@
 
 **Part 11 — AI Productivity Utility · Prototype (MVP)**
 
+> **⚠️ Prototype — not a production application.** Mock Jira data, no authentication, no persistence, no database, no deployment, no SLAs. It demonstrates the concept end-to-end and nothing more — see [Out of scope](#out-of-scope-future-work).
+
 ## Problem
 
 Technical Program Managers waste time manually pulling sprint data from Jira into slide decks to show leadership a health snapshot. The data exists; the friction is retrieval and formatting. This MCP server removes both: ask your AI agent for a dashboard, get one in the browser in under 10 seconds.
@@ -11,7 +13,7 @@ Technical Program Managers waste time manually pulling sprint data from Jira int
 ## The flow
 
 ```
-1. User starts THE APP                ./start.sh
+1. User starts THE APP                tpm-dashboard-mcp app     (one command, no build)
       → mock Jira API   http://127.0.0.1:8000/rest/api/3/search
       → dashboard UI    http://localhost:5173      (stays running; Ctrl+C stops it)
 
@@ -26,14 +28,14 @@ Technical Program Managers waste time manually pulling sprint data from Jira int
 ```
 
 ```
-User ── ./start.sh ──▶ APP PROCESS ── mock Jira :8000 ──▶ React dashboard :5173
-                          ▲                                    ▲
-AI client ── spawns ── MCP server (stdio) ── fetch / generate ─┘ (shared payload file)
+User ── tpm-dashboard-mcp app ──▶ APP PROCESS ── mock Jira :8000 ──▶ React dashboard :5173
+                                      ▲                                ▲
+AI client ── spawns ── MCP server (stdio) ── fetch / generate ────────┘ (shared payload file)
 ```
 
 | Piece | Runs in | Started by |
 |---|---|---|
-| App: mock Jira `:8000` + dashboard `:5173` | one foreground process | you — `./start.sh` |
+| App: mock Jira `:8000` + dashboard `:5173` | one foreground process | you — `tpm-dashboard-mcp app` (`./start.sh` only in a source checkout) |
 | MCP server (4 tools, stdio) | child process | your AI client (Claude/OpenCode/Cursor) |
 | React dashboard | inside the app process | the app |
 
@@ -41,9 +43,11 @@ The UI is the Google Stitch project **"Project Manager UI Dashboard"** ported to
 
 ---
 
-## Quick start (release binary — no Python/Node needed)
+## Quick start — run it without building
 
-**1. Download** the executable for your OS from the [Releases page](../../releases):
+The Releases page ships **one executable per OS** (Linux, Windows, macOS) — no Python, no Node, no clone, **no `start.sh`** (that script only exists for source checkouts).
+
+**1. Download** the executable for your OS from the [Releases page](../../releases) (current: `v0.4.0`):
 
 | OS | File |
 |---|---|
@@ -51,23 +55,41 @@ The UI is the Google Stitch project **"Project Manager UI Dashboard"** ported to
 | Windows x86_64 | `tpm-dashboard-mcp-windows-x86_64.exe` |
 | macOS (Apple Silicon) | `tpm-dashboard-mcp-macos-arm64` |
 
+**2. Install it to a fixed path** (the client configs below use `/usr/local/bin`):
+
 ```bash
-chmod +x tpm-dashboard-mcp-*                        # Linux/macOS
-xattr -d com.apple.quarantine tpm-dashboard-mcp-macos-arm64   # macOS Gatekeeper only
+# Linux
+sudo install -m 755 tpm-dashboard-mcp-linux-x86_64 /usr/local/bin/tpm-dashboard-mcp
+
+# macOS (Apple Silicon): clear Gatekeeper first, then install
+xattr -d com.apple.quarantine tpm-dashboard-mcp-macos-arm64
+sudo install -m 755 tpm-dashboard-mcp-macos-arm64 /usr/local/bin/tpm-dashboard-mcp
 ```
 
-**2. Start the app** (leave this terminal running):
+```powershell
+# Windows: the .exe runs as-is (no chmod). Keep it somewhere permanent,
+# e.g. C:\Tools — optionally add that folder to PATH:
+move tpm-dashboard-mcp-windows-x86_64.exe C:\Tools\tpm-dashboard-mcp.exe
+```
+
+No PATH? Use the file's full path wherever this README says `/usr/local/bin/tpm-dashboard-mcp`.
+
+**3. Start the app** — one command, leave the terminal running:
 
 ```bash
-./start.sh
+tpm-dashboard-mcp app
 # [tpm-dashboard] TPM Dashboard app
-# [tpm-dashboard] Connect AI client : /path/tpm-dashboard-mcp start   (stdio MCP)
+# [tpm-dashboard] Connect AI client : /usr/local/bin/tpm-dashboard-mcp start   (stdio MCP)
 # [tpm-dashboard] Mock Jira API : starting → http://127.0.0.1:8000/rest/api/3/search
 # [tpm-dashboard] Dashboard UI  : starting → http://localhost:5173
 # [tpm-dashboard] ready ...
 ```
 
-**3. Connect your AI client** (see below), then ask:
+Windows: `C:\Tools\tpm-dashboard-mcp.exe app`. **Ctrl+C stops everything** (both servers live in this one process).
+
+**4. One-time, only for the PDF tools:** `npx playwright install chromium`
+
+**5. Connect your AI client** (see below), then ask:
 
 > *"Fetch the latest Jira data and generate a dashboard."*
 
@@ -128,6 +150,8 @@ Cursor and any other MCP client work the same way: command = the executable, arg
 
 ## Build and run from source (development)
 
+> `start.sh` / `stop.sh` are **source-checkout conveniences** (they locate the repo's binary or fall back to `python main.py`). If you only downloaded a release executable, ignore them — use `tpm-dashboard-mcp app` instead.
+
 Requires **Python 3.10+** and **Node 18+**.
 
 ```bash
@@ -144,7 +168,7 @@ All subcommands (also `python main.py <cmd>` from source):
 
 | Command | What it does |
 |---|---|
-| `app` | the app — mock Jira + dashboard server, foreground (used by `start.sh`) |
+| `app` | the app — mock Jira + dashboard server, foreground (what Quick start runs; `start.sh` wraps it for source checkouts) |
 | `start` | MCP stdio for AI clients — attaches to the app, auto-starts it if down (default) |
 | `mcp` | MCP stdio only — never starts anything |
 | `mock-jira` | standalone mock Jira on `:8000` |
@@ -155,26 +179,28 @@ After changing React code: `cd frontend && npm run build`, restart the app. (For
 
 ```bash
 cd frontend && npm install && npm run build && cd ..
-pip install pyinstaller
+pip install pyinstaller playwright && python -m playwright install chromium
 
 # Linux / macOS
-pyinstaller --onefile --name tpm-dashboard-mcp --add-data "frontend/dist:frontend" main.py
+pyinstaller --onefile --name tpm-dashboard-mcp --add-data "frontend/dist:frontend" --collect-all playwright main.py
 # Windows (CMD) — note the semicolon
-pyinstaller --onefile --name tpm-dashboard-mcp --add-data "frontend/dist;frontend" main.py
+pyinstaller --onefile --name tpm-dashboard-mcp --add-data "frontend/dist;frontend" --collect-all playwright main.py
 ```
 
-**`dist/tpm-dashboard-mcp` is a single executable file** (~46 MB ELF on Linux, `.exe` on Windows) — Python interpreter, all modules, every pip dependency, and the built React frontend packed inside by PyInstaller. No Python or Node needed to run it:
+**`dist/tpm-dashboard-mcp` is a single executable file** — Python interpreter, all modules, every pip dependency, the built React frontend, and the Playwright driver packed inside by PyInstaller (~60–83 MB; the Chromium browser itself installs separately to `~/.cache/ms-playwright`, needed only for `update_pdf`). No Python or Node needed to run it:
 
 ```bash
 ./dist/tpm-dashboard-mcp app       # the app, from one file
 ```
+
+Prebuilt binaries with exactly this shape are attached to every GitHub Release — building locally is only needed for development.
 
 ### Cross-platform release (CI)
 
 GitHub Actions builds all three binaries on every `v*` tag ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
 
 ```bash
-git tag v0.2.0 && git push origin main --tags
+git tag vX.Y.Z && git push origin main --tags
 # → Linux (ubuntu-22.04 for glibc compatibility), Windows, macOS → attached to a GitHub Release
 ```
 
@@ -189,7 +215,7 @@ The **app** prints its addresses on start (see Quick start above) plus the paylo
 ```
 [tpm-dashboard] MCP transport : stdio (no port/URL — your AI client spawns this process)
 [tpm-dashboard] Mock Jira API : http://127.0.0.1:8000/rest/api/3/search
-[tpm-dashboard] Dashboard UI  : http://localhost:5173 (from ./start.sh — the app)
+[tpm-dashboard] Dashboard UI  : http://localhost:5173 (from the app)
 [tpm-dashboard] logging       : stderr only; normal (use --debug for verbose)
 [tpm-dashboard] Dashboard     : ready → http://localhost:5173  (velocity 44.8%)
 ```
@@ -197,9 +223,10 @@ The **app** prints its addresses on start (see Quick start above) plus the paylo
 **`--debug` adds verbose logging:** HTTP requests/responses, payload metrics (issues/points/velocity), app auto-start with pid and readiness timing, browser-open result, and every HTTP request the app serves:
 
 ```bash
-./start.sh --debug                 # flags are forwarded to the executable
-dist/tpm-dashboard-mcp --debug app
-python main.py --debug app
+tpm-dashboard-mcp --debug app      # installed binary
+./dist/tpm-dashboard-mcp --debug app
+python main.py --debug app         # from source
+./start.sh --debug                 # source checkout wrapper (forwards flags)
 ```
 
 To debug the MCP connection, add the flag to your client config:
@@ -212,9 +239,9 @@ To debug the MCP connection, add the flag to your client config:
 
 ## Stopping
 
-- **Ctrl+C in the `./start.sh` terminal** stops the app — both servers die together (they're one process).
+- **Ctrl+C in the app terminal** (`tpm-dashboard-mcp app`) stops everything — both servers live in that one process. On Windows: `Ctrl+C` or `taskkill /IM tpm-dashboard-mcp.exe`.
 - The MCP server handles Ctrl+C/SIGTERM too, and terminates any app *it* auto-started.
-- To stop everything including strays:
+- To stop everything including strays (source checkouts):
 
 ```bash
 ./stop.sh     # MCP server, app, mock Jira (binary or source)
@@ -252,31 +279,34 @@ Dashboard shows: metric cards, Milestone Status, Risks & Mitigations (severity c
 
 ```
 mock_jira.py                      Mock Jira REST API — faithful v3 subset (JQL search, issue, agile sprints), live-evolving board (port 8000)
-dashboard.py                      the app runtime: dashboard server (:5173), payload file, app lifecycle
-mcp_server.py                     MCPServer: two tools over stdio
+dashboard.py                      the app runtime: dashboard server (:5173), /api/sync, payload file, app lifecycle
+report.py                         shared logic: Jira fetch/normalization + payload building (MCP tools and /api/sync)
+mcp_server.py                     MCPServer: four tools over stdio
 main.py                           CLI entry: app | start | mcp | mock-jira
 frontend/                         Vite + React + MUI app — DashboardPage, PdfPage, IssueTable, AddBlockerDialog, KpiCard (Stitch design port)
-start.sh                          one command → the app (binary → ~/.local/bin → source fallback)
-stop.sh                           one command → stop everything
+start.sh                          source-checkout convenience → the app (binary-only users: just run `tpm-dashboard-mcp app`)
+stop.sh                           source-checkout convenience → stop everything
 dist/tpm-dashboard-mcp            the single executable file (gitignored — built via PyInstaller/CI)
-.github/workflows/release.yml     Release: PyInstaller on Linux/Windows/macOS
-REQ.MD                            Requirements document
+.github/workflows/release.yml     Release: PyInstaller on Linux/Windows/macOS → GitHub Release assets
+REQ.md                            Requirements document (local project spec)
 ```
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
-| Browser: `connection refused` on `:5173` | App not running → `./start.sh`, then ask the agent to generate again |
+| Browser: `connection refused` on `:5173` | App not running → `tpm-dashboard-mcp app`, then ask the agent to generate again |
 | Dashboard says "no data yet" | `generate_dashboard` hasn't run in this session → ask the agent once |
-| `fetch_jira_data` returns an error | App's mock Jira down → `./start.sh` (the tool also retries after auto-start) |
-| "frontend not built" | `cd frontend && npm run build`, restart the app |
-| Port already in use | `./stop.sh` then start fresh |
+| `fetch_jira_data` returns an error | App's mock Jira down → start the app (the tool also retries after auto-start) |
+| "frontend not built" | Source checkout only: `cd frontend && npm run build`, restart the app |
+| Port already in use | Ctrl+C the running app (or `./stop.sh` in a source checkout), start fresh |
 | MCP tools not visible in the client | Absolute path in config, restart the client, check its MCP logs |
 | `update_pdf` fails with missing Chromium | `npx playwright install chromium` (browser is installed once, outside the executable) |
 | Linux binary: `GLIBC_... not found` | Use the release asset (ubuntu-22.04 build) or build from source |
 
 ## Out of scope (future work)
+
+> Reminder: this repository is a **prototype**, not a production application — everything below is intentionally unbuilt.
 
 - Real Jira auth (OAuth/API tokens) and live sync
 - Persistence, multi-user, deployed hosting
