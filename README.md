@@ -51,9 +51,13 @@ xattr -d com.apple.quarantine tpm-dashboard-mcp-macos-arm64
 
 Windows: rename to `tpm-dashboard-mcp.exe` if you like, keep it anywhere.
 
-**2. Connect your AI client** (see below). That's it — one command starts everything:
+**2. One command to start everything:**
 
-The `start` subcommand (which AI clients run) **auto-starts the mock Jira** on port 8000 if it isn't already running, then serves MCP over stdio. No extra terminal needed.
+```bash
+./start.sh
+```
+
+The script resolves the executable (`dist/` → `~/.local/bin` → source `python3 main.py`), then runs the `start` subcommand: it **auto-starts the mock Jira** on port 8000 (detached) and serves MCP over stdio. No extra terminal needed — you can even point your MCP client's `command` directly at `start.sh`.
 
 Then ask your client:
 
@@ -61,7 +65,7 @@ Then ask your client:
 
 Your browser opens `http://localhost:5173` with the sprint health dashboard.
 
-Prefer running the data server yourself? `tpm-dashboard-mcp mock-jira` (standalone) or `python main.py mock-jira` (source).
+Prefer running parts yourself? `tpm-dashboard-mcp mock-jira` (standalone) or `python main.py mock-jira` (source).
 
 **Try it without an AI client** (MCP Inspector):
 
@@ -190,6 +194,7 @@ Dashboard shows: total points, done points, velocity %, issue count, completed i
 mock_jira.py                      FastAPI mock Jira (5 issues, port 8000)
 mcp_server.py                     MCPServer: two tools over stdio + embedded static server
 main.py                           CLI entry: start | mock-jira | mcp (used by dev and packaging)
+start.sh                          One-command launcher (binary → ~/.local/bin → source fallback)
 frontend/                         Vite + React app (App → MetricCard, IssueTable)
 .github/workflows/release.yml     Release: PyInstaller on Linux/Windows/macOS
 REQ.MD                            Requirements document
