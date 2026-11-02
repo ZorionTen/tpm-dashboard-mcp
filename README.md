@@ -237,7 +237,7 @@ Dashboard shows: metric cards, Milestone Status, Risks & Mitigations (severity c
 |---|---|
 | **Export PDF** | navigates to the `#/pdf` report page, then opens the browser print dialog (also: floating *Print / Save PDF* strip on that page) |
 | **Log Risk** | modal form → appends a `Blocked` row to the table (session-local; auto-assigned key, points count toward totals) |
-| **Sync (refresh)** | re-fetches `/data.json` (latest generated payload) + toast |
+| **Sync (refresh)** | **live Jira sync** — the app calls the Jira API itself (`GET /api/sync`), recomputes metrics from the evolving board, keeps agent-passed risks/wins, updates the UI + toast with the new velocity (no agent needed) |
 | **Sprint selector** | static label — "Sprint 24 (Current)" |
 | **Ticket links / open icons** | open `https://jira.example.com/browse/<KEY>` in a new tab (placeholder host) |
 | **Theme toggle** | dark ⇄ light + toast; filter chips + search filter the table client-side |

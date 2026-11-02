@@ -6,9 +6,7 @@ hands over payload JSON via the shared file and points the agent at the URL.
 import json
 import os
 import time
-import urllib.request
 import webbrowser
-from urllib.parse import quote
 
 from dashboard import (
     DASH_PORT,
@@ -20,6 +18,8 @@ from dashboard import (
     pdf_path,
     port_open,
 )
+# (fetch/normalize/build live in report.py — shared with the app's /api/sync)
+from report import JIRA_SEARCH, build_payload, fetch_jira_raw, normalize_jira
 from mcp.server.mcpserver import MCPServer
 
 mcp = MCPServer("tpm-dashboard")
@@ -34,34 +34,12 @@ def banner() -> None:
     _log(f"logging       : stderr only; {'debug ON (--debug)' if DEBUG else 'normal (use --debug for verbose)'}")
 
 
-def _build_payload(issues: list) -> dict:
-    pts = lambda i: int(i.get("story_points") or 0)
-    total = sum(pts(i) for i in issues)
-    done = sum(pts(i) for i in issues if i.get("status") == "Done")
-    return {
-        "generated_at": time.strftime("%Y-%m-%d %H:%M"),
-        "total_points": total,
-        "done_points": done,
-        "velocity": round(done / total * 100, 1) if total else 0.0,
-        "issue_count": len(issues),
-        "completed_count": sum(1 for i in issues if i.get("status") == "Done"),
-        "issues": issues,
-    }
-
-
 @mcp.tool()
 def fetch_jira_data() -> str:
     """Fetch current sprint issues from the real Jira REST API shape: runs JQL 'sprint in openSprints() ORDER BY status ASC' against GET /rest/api/3/search. Returns the raw Jira response {startAt, maxResults, total, issues[].{key, fields.{summary,status,priority,assignee,customfield_10016,sprint}}} — pass the WHOLE response to generate_dashboard. The live board evolves between calls (statuses/points change). Auto-starts the app if it's down."""
-    jql = quote("sprint in openSprints() ORDER BY status ASC")
-    fields = quote("summary,status,priority,assignee,labels,customfield_10016,sprint")
-    url = f"{JIRA_URL}?jql={jql}&fields={fields}&maxResults=50"
     try:
-        _dbg(f"GET {url}")
-        # Never proxy localhost — the MCP client's env may set a system proxy
-        # that mangles loopback responses.
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        with opener.open(url, timeout=5) as r:
-            body = r.read().decode()
+        _dbg(f"GET {JIRA_SEARCH}")
+        body = fetch_jira_raw()
         try:
             d = json.loads(body)
             _dbg(f"→ 200, total={d.get('total')} issues, {len(body)} bytes")
@@ -72,9 +50,7 @@ def fetch_jira_data() -> str:
         _log(f"fetch_jira_data FAILED: {e}")
         ensure_app()
         try:
-            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-            with opener.open(url, timeout=5) as r:
-                return r.read().decode()
+            return fetch_jira_raw()
         except Exception as e2:
             return f"ERROR: mock Jira unreachable at {JIRA_URL} — start the app with ./start.sh ({e2})"
 
@@ -92,36 +68,14 @@ def generate_dashboard(
     payload: dict
     try:
         data = json.loads(jira_json)
-        raw = data.get("issues") if isinstance(data, dict) else data
-        if not isinstance(raw, list):
-            raise ValueError("expected a Jira search response with an 'issues' array (or a flat issue array)")
-        goal = ""
-        if raw and isinstance(raw[0], dict) and "fields" in raw[0]:
-            # Real Jira v3 shape: {key, fields:{summary,status,customfield_10016,sprint}}
-            issues = []
-            for i in raw:
-                f = i.get("fields") or {}
-                sp = f.get("sprint")
-                sp = sp[0] if isinstance(sp, list) and sp else sp
-                if not goal and isinstance(sp, dict):
-                    goal = sp.get("goal") or ""
-                issues.append({
-                    "key": i.get("key", ""),
-                    "summary": f.get("summary", ""),
-                    "status": (f.get("status") or {}).get("name", ""),
-                    "story_points": f.get("customfield_10016") or 0,
-                })
-        else:  # flat legacy shape
-            issues = raw
-            if isinstance(data, dict):
-                goal = data.get("milestone_status") or ""
-        payload = _build_payload(issues)
-        payload["milestone_status"] = milestone_status or goal
-        payload["risks_mitigations"] = risks_mitigations
-        payload["key_wins"] = key_wins
+        issues, goal = normalize_jira(data)
+        payload = build_payload(
+            issues, goal=goal, milestone_status=milestone_status,
+            risks_mitigations=risks_mitigations, key_wins=key_wins,
+        )
         _dbg(f"payload built: {payload['issue_count']} issues, {payload['total_points']} pts total, "
              f"{payload['done_points']} pts done, velocity {payload['velocity']}%, "
-             f"milestone={'goal' if goal else 'no'}, "
+             f"milestone={'goal' if payload['milestone_status'] else 'no'}, "
              f"risks={'yes' if risks_mitigations else 'no'}, "
              f"wins={'yes' if key_wins else 'no'}")
     except Exception as e:

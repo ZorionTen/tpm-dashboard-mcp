@@ -57,7 +57,7 @@ Technical Program Managers waste time manually pulling sprint data from Jira int
 | AC9 | A release provides one executable per OS that runs the entire project with no Python/Node install | GitHub Release assets: Linux, Windows, macOS binaries; each runs `app` and `start` |
 | AC10 | The dashboard shows Milestone Status (single line), Risks & Mitigations (multi-line), and Key Wins (multi-line); empty fields are omitted | Visual inspection of rendered React UI; call generate with/without the fields |
 | AC11 | The MCP exposes `update_pdf` and `download_pdf`: update renders the PDF layout page headlessly to a PDF file; download returns its path/metadata | Call both via Inspector after generate_dashboard; a valid PDF file appears in `~/.cache/tpm-dashboard/` |
-| AC12 | The UI is the Stitch design ("Project Manager UI Dashboard") implemented in React + MUI: dashboard page and PDF layout page, with the agreed button behaviors (Export PDF → PDF page + print dialog; Log Risk → session-local modal; Sync → re-fetch `/data.json`; static sprint label; fake Jira links) | Visual comparison against the Stitch screens; click each control |
+| AC12 | The UI is the Stitch design ("Project Manager UI Dashboard") implemented in React + MUI: dashboard page and PDF layout page, with the agreed button behaviors (Export PDF → PDF page + print dialog; Log Risk → session-local modal; Sync → live Jira sync via `GET /api/sync`; static sprint label; fake Jira links) | Visual comparison against the Stitch screens; click each control |
 
 ---
 
@@ -205,7 +205,7 @@ Visual style: dark background, clean sans-serif, card-based metrics. Rendering h
 | Distribution | GitHub Releases: one single-file executable per OS (Linux x86_64, Windows x86_64, macOS arm64), built by CI on every `v*` tag |
 | Portability | Runs on macOS, Linux, Windows (anywhere Python runs) |
 | No external services | No real Jira, no cloud, no API keys |
-| Code size | Python under 700 lines across all files; React frontend small and componentized |
+| Code size | Python under 750 lines across all files; React frontend small and componentized |
 | Logging | Startup banner (transport, addresses, mode) on stderr always; `--debug` for verbose tool/HTTP logging; stdout reserved for the MCP protocol |
 | Shutdown | Ctrl+C / SIGTERM terminate auto-started children (mock Jira, Vite) and exit; `stop.sh` stops everything including orphans |
 

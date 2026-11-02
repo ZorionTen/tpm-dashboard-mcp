@@ -47,9 +47,23 @@ export default function App() {
 
   const handleRefresh = async () => {
     setRefreshing(true)
-    await loadData()
-    setRefreshing(false)
-    showToast('Sprint metrics synced with Jira')
+    try {
+      // Live sync: the app pulls the board from Jira itself (metrics evolve there)
+      const r = await fetch('/api/sync', { cache: 'no-store' })
+      const j = await r.json()
+      if (j && !j.error) {
+        setData(j)
+        showToast(`Sprint metrics synced with Jira — velocity ${j.velocity}%`)
+      } else {
+        await loadData()
+        showToast(j?.error || 'Sync failed — showing last generated data')
+      }
+    } catch {
+      await loadData()
+      showToast('Sync failed — showing last generated data')
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   const handleToggleTheme = () => {

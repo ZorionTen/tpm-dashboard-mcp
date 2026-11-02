@@ -17,6 +17,8 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from report import build_payload, fetch_jira_raw, normalize_jira
+
 DASH_PORT = 5173
 JIRA_PORT = 8000
 BASE = Path(__file__).resolve().parent
@@ -114,6 +116,8 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = self.path.split("?")[0]
+        if path == "/api/sync":
+            return self._sync()
         if path == "/data.json":
             f = payload_path()
             if not f.is_file():
@@ -130,6 +134,29 @@ class _Handler(BaseHTTPRequestHandler):
         ctype = {"html": "text/html", "js": "text/javascript", "css": "text/css"}.get(
             f.suffix.lstrip("."), "application/octet-stream")
         self._send(f.read_bytes(), ctype)
+
+    def _sync(self) -> None:
+        """Live sync: pull the board from the mock Jira, keep agent-passed narrative,
+        refresh the payload — this is what the dashboard's Sync button calls."""
+        try:
+            data = json.loads(fetch_jira_raw())
+            issues, goal = normalize_jira(data)
+            f = payload_path()
+            old = json.loads(f.read_text()) if f.is_file() else {}
+            payload = build_payload(
+                issues,
+                goal=goal or old.get("milestone_status", ""),
+                risks_mitigations=old.get("risks_mitigations", ""),
+                key_wins=old.get("key_wins", ""),
+            )
+            f.write_text(json.dumps(payload))
+            _dbg(f"api/sync → {payload['issue_count']} issues, velocity {payload['velocity']}% (live)")
+            return self._send(json.dumps(payload).encode(), "application/json")
+        except Exception as e:
+            _log(f"api/sync FAILED: {e}")
+            return self._send(
+                json.dumps({"error": f"live sync failed: {e}"}).encode(),
+                "application/json", 502)
 
 
 def run_app(debug: bool = False) -> None:
