@@ -1,0 +1,300 @@
+# Part 11 — AI Productivity Utility: Requirements Document
+
+**Product:** TPM Dashboard MCP Server
+**Chosen Option:** Option E (Project Health Dashboard) — delivered as an MCP tool, frontend in React, shipped as a single cross-platform executable
+**Author:** Zaid
+**Date:** November 2026
+**Status:** Prototype (MVP)
+**Audience:** Developer / AI-assisted build (Cursor, Claude Code)
+
+---
+
+## 1. Problem Statement
+
+Technical Program Managers waste time manually pulling sprint data from Jira into slide decks or spreadsheets to show leadership a simple health snapshot. The data already exists; the friction is in the retrieval and the formatting.
+
+**Result:** Status updates are delayed, inconsistent, and often out of date by the time they reach leadership.
+
+---
+
+## 2. User Persona
+
+**Primary User:** A Technical Program Manager who needs a quick, visual sprint health snapshot every Friday.
+
+**Pain Points:**
+- Clicking through Jira filters manually
+- Copy-pasting issue lists into slides
+- No single view that shows velocity + blockers + status at a glance
+- The dashboard is stale by Monday
+
+**Goal:** Ask an AI agent for the current sprint health and get a browser dashboard in under 10 seconds.
+
+---
+
+## 3. User Story
+
+**ID:** US-P11-01
+**Title:** Generate a live sprint dashboard from Jira via an AI agent
+
+**As a** Technical Program Manager,
+**I want to** ask my AI client (OpenCode, Claude Desktop, Cursor) to fetch the latest Jira data and open a health dashboard in my browser,
+**So that** I can see sprint velocity, issue status, and blockers without opening Jira or building a slide deck.
+
+---
+
+## 4. Acceptance Criteria
+
+| # | Criterion | Test |
+|---|---|---|
+| AC1 | The MCP server exposes two tools: `fetch_jira_data` and `generate_dashboard` | MCP Inspector lists both tools |
+| AC2 | `fetch_jira_data` returns structured JSON from a mock Jira REST API | Call tool via Inspector; JSON appears |
+| AC3 | `generate_dashboard` accepts the JSON, computes velocity (done points / total points), and persists it for the React frontend | Call tool with sample JSON; payload is served at `/data.json` |
+| AC4 | The generated dashboard opens automatically in the user's default browser at `http://localhost:5173` | Browser launches after tool call |
+| AC5 | The dashboard shows: total issues, completed issues, velocity ratio, and a list of issues with status | Visual inspection of rendered React UI |
+| AC6 | The MCP server runs over stdio and connects to OpenCode (or any MCP client) | OpenCode calls the tool via natural language |
+| AC7 | The mock Jira server runs locally on port 8000 with no external dependencies | `tpm-dashboard-mcp mock-jira` starts without errors |
+| AC8 | The frontend is a Vite + React app rendered with components (not static HTML) | `frontend/src` contains React components rendering metrics and issue table |
+| AC9 | A release provides one executable per OS that runs the entire project with no Python/Node install | GitHub Release assets: Linux, Windows, macOS binaries; each runs `mock-jira` and `mcp` |
+
+---
+
+## 5. Functional Requirements
+
+### 5.1 System Overview
+
+The solution has four components:
+
+1. **A mock Jira API** — a local server that returns fake sprint data so the prototype can run without real Jira credentials.
+2. **An MCP server** — exposes two tools to any MCP-compatible AI client: one to fetch Jira data, one to persist it and open the dashboard.
+3. **A React frontend** — a Vite + React app that reads the generated JSON and renders the health dashboard. Its production build is bundled into the executable.
+4. **The user's AI client** — OpenCode (or Claude Desktop, Cursor) — acts as the control plane. The user asks in natural language; the client calls the tools.
+
+**Packaging:** one entry point (`main.py`) is compiled with PyInstaller into a single cross-platform executable per OS (`tpm-dashboard-mcp`), with subcommands:
+
+```
+tpm-dashboard-mcp mock-jira   → FastAPI mock Jira on :8000
+tpm-dashboard-mcp mcp         → stdio MCP server (default)
+```
+
+**Architecture flow (release mode):**
+
+```
+User in OpenCode → "Generate a status dashboard from Jira"
+       ↓
+OpenCode agent calls MCP tools (stdio)
+       ↓
+tpm-dashboard-mcp (single executable)
+  ├─ Tool 1: fetch_jira_data() → HTTP GET → Mock Jira (localhost:8000)
+  └─ Tool 2: generate_dashboard(json) → computes metrics
+             → serves bundled React build + payload on :5173 (embedded server)
+             → opens browser at http://localhost:5173
+       ↓
+React app fetches /data.json → renders dashboard
+```
+
+**Development mode:** running from source, `generate_dashboard` instead writes `frontend/public/data.json` and starts the Vite dev server (`npm run dev`, port 5173).
+
+### 5.2 Component Requirements
+
+**Component 1: Mock Jira API**
+
+| Requirement | Detail |
+|---|---|
+| Purpose | Simulate a Jira REST endpoint for local testing |
+| Tech | Python + FastAPI + Uvicorn |
+| Endpoint | `GET /rest/api/3/search` |
+| Response | JSON with 5 issues, each containing: key, summary, status, story_points |
+| Port | 8000 |
+| Auth | None (prototype only) |
+
+**Component 2: MCP Server**
+
+| Requirement | Detail |
+|---|---|
+| Purpose | Expose tools to an AI client via the Model Context Protocol |
+| Tech | Python + `mcp` SDK (`MCPServer`, v2) |
+| Transport | stdio (standard for local MCP servers) |
+| Tools | `fetch_jira_data` (no input) and `generate_dashboard` (accepts JSON string) |
+| Dependency | Mock Jira must be running for `fetch_jira_data` to work |
+
+**Tool 1: `fetch_jira_data`**
+
+| Field | Detail |
+|---|---|
+| Description | "Fetch current sprint issues from the mock Jira REST API." |
+| Input | None |
+| Output | JSON string of issues |
+| Logic | HTTP GET to `http://localhost:8000/rest/api/3/search`; return response as JSON |
+| Error handling | Return an actionable error message if the mock server is unreachable |
+
+**Tool 2: `generate_dashboard`**
+
+| Field | Detail |
+|---|---|
+| Description | "Generate an HTML sprint health dashboard from Jira JSON and open it in the browser." |
+| Input | `jira_json` (string) |
+| Output | Success message with file path / URL |
+| Logic | 1. Parse JSON (array of issues, or object with `issues` array). 2. Compute total points, done points, velocity ratio. 3. Serve the React build + payload on port 5173 (embedded static server in release mode; `frontend/public/data.json` + Vite dev server in dev mode). 4. Open `http://localhost:5173` via `webbrowser.open()`. |
+| Error handling | Return an error if JSON is invalid; still serve a payload so the React app renders an error state |
+
+**Component 3: React Frontend**
+
+| Requirement | Detail |
+|---|---|
+| Purpose | Render the sprint health dashboard from generated JSON |
+| Tech | Vite + React (JavaScript, no TypeScript required for prototype) |
+| Port | 5173 (embedded static server, or Vite in dev) |
+| Data source | `/data.json` fetched at render time |
+| Components | `App` → `MetricCard`, `IssueTable` (one concern per component) |
+| Styling | Plain CSS (dark background, card-based metrics, clean sans-serif); no UI framework |
+| External deps | None at runtime — no CDN, no API calls from the browser |
+| Packaging | `npm run build` output (`frontend/dist`) is bundled into the executable as data files |
+
+### 5.3 Dashboard Output Requirements
+
+The React app must display:
+
+| Element | Requirement |
+|---|---|
+| Header | "Sprint Health Dashboard" |
+| Metrics cards | Total Points, Done Points, Velocity %, Issue Count, Completed Issues |
+| Issue table | Columns: Key, Summary, Status, Story Points |
+| Status color coding | Done = green; In Progress = amber; Blocked = red |
+| Footer | "Generated by TPM Dashboard MCP · Prototype" |
+
+Visual style: dark background, clean sans-serif, card-based metrics. Rendering happens in React components; data arrives via `/data.json`.
+
+---
+
+## 6. Non-Functional Requirements
+
+| Requirement | Target |
+|---|---|
+| Setup time | Under 5 minutes from clone to running |
+| Runtime | Dashboard generation under 10 seconds (release mode: no build/dev-server step) |
+| Dependencies | Runtime: none beyond the executable (Python bundled by PyInstaller, React build bundled). Dev: Python 3.10+, Node 18+, 3 pip packages. Testing: one npm package (`@modelcontextprotocol/inspector`) |
+| Distribution | GitHub Releases: one single-file executable per OS (Linux x86_64, Windows x86_64, macOS arm64), built by CI on every `v*` tag |
+| Portability | Runs on macOS, Linux, Windows (anywhere Python runs) |
+| No external services | No real Jira, no cloud, no API keys |
+| Code size | Python under 250 lines across all files; React frontend small and componentized |
+
+---
+
+## 7. Deliverables
+
+| # | Deliverable | Detail |
+|---|---|---|
+| 1 | GitHub repository | Public repo: `tpm-dashboard-mcp` |
+| 2 | `mock_jira.py` | FastAPI mock Jira server |
+| 3 | `mcp_server.py` | MCP server with two tools |
+| 4 | `main.py` | Single CLI entry (`mock-jira` \| `mcp`) used by both dev and packaging |
+| 5 | `frontend/` | Vite + React app (`src/App.jsx`, components, CSS) |
+| 6 | `requirements.txt` | Python dependencies |
+| 7 | `README.md` | Setup, architecture, how to connect to OpenCode/Claude Desktop, video link |
+| 8 | `.gitignore` | Exclude `frontend/public/data.json`, `node_modules/`, `__pycache__/`, `dist/`, `frontend/dist/` |
+| 9 | Release workflow | `.github/workflows/release.yml` — PyInstaller single-file build on Linux/Windows/macOS, attached to a GitHub Release on every `v*` tag |
+| 10 | GitHub Release | Cross-platform executables downloadable from the Releases page |
+| 11 | Loom video (10–15 min) | Problem → demo → code walkthrough → connection to Parts 1–10 |
+
+---
+
+## 8. Out of Scope (Prototype Boundaries)
+
+- Real Jira authentication (OAuth, API tokens)
+- Persistent data storage
+- Multi-user support
+- Deployed hosting (frontend served locally; release is a desktop-style local binary)
+- Scheduled/automatic report generation
+- Slack/email delivery of the dashboard
+- Real-time Jira sync
+- Code signing / notarization of release binaries
+
+These are listed as "future work" in the README to show product thinking without building them.
+
+---
+
+## 9. Definition of Done
+
+- [ ] `tpm-dashboard-mcp mock-jira` runs and returns JSON on port 8000
+- [ ] `mcp_server.py` exposes both tools and is verified via MCP Inspector / OpenCode
+- [ ] `generate_dashboard` serves the React dashboard at `http://localhost:5173` and opens the browser
+- [ ] React app renders metrics cards and the color-coded issue table from `/data.json`
+- [ ] Single-file executable builds locally with PyInstaller and runs both subcommands
+- [ ] GitHub Release created by CI with Linux, Windows, and macOS executables
+- [ ] GitHub repo is public with a complete README
+- [ ] Loom video (10–15 min) recorded and linked
+
+---
+
+## 10. Build Plan (Developer Handoff Notes)
+
+These are notes for the developer (or AI coding assistant). They describe *what* to build, not *how* to write the code.
+
+### Step 1: Scaffold the mock Jira
+- A single Python file with a FastAPI app
+- One endpoint that returns 5 hardcoded issues
+- Runs on port 8000
+- Verify with `curl http://localhost:8000/rest/api/3/search`
+
+### Step 2: Scaffold the React frontend
+- `npm create vite@latest frontend -- --template react`
+- Build components: `MetricCard`, `IssueTable`, composed in `App`
+- Fetch `/data.json` on mount; render an error state if missing
+- Dark, card-based styling in plain CSS
+- Fixed port 5173 (strict) so the MCP tool URL is stable
+
+### Step 3: Scaffold the MCP server
+- A single Python file using the `mcp` SDK's `MCPServer`
+- Two `@mcp.tool()` decorated functions: `fetch_jira_data` and `generate_dashboard`
+- `generate_dashboard` computes metrics, persists the payload, starts/serves the frontend, and opens the browser
+- Tools must have clear docstrings (the AI client reads these to understand when to call them)
+- A shared `main.py` entry dispatches `mock-jira` vs `mcp` subcommands
+
+### Step 4: Test with MCP Inspector
+- Run the mock Jira in one terminal
+- Run `npx @modelcontextprotocol/inspector python main.py mcp` in another
+- Call both tools manually and verify output
+
+### Step 5: Connect to OpenCode
+- Add the MCP server to OpenCode's config
+- Restart OpenCode
+- Test with: *"Fetch the latest Jira data and generate a dashboard."*
+
+### Step 6: Package the single executable
+- `npm run build` the frontend
+- PyInstaller `--onefile` with `frontend/dist` bundled as data
+- Verify both subcommands from the binary
+
+### Step 7: Release via CI
+- GitHub Actions workflow: build frontend → PyInstaller on Linux/Windows/macOS → attach binaries to a GitHub Release on every `v*` tag
+- Tag `v0.1.0`, confirm all three assets appear on the Releases page
+
+### Step 8: Push, document, record
+- Push to GitHub
+- Write README covering: problem, architecture, setup steps, how to connect to OpenCode, release download, video link
+- Record the video: 2 min problem → 3 min live demo in OpenCode → 2 min the two tools + React components → 3 min connection to Parts 1–10 → 2 min challenges and future work
+
+---
+
+## 11. Why This Qualifies for Full Marks
+
+| Brief Requirement | How This Delivers |
+|---|---|
+| "Improves productivity of a TPM" | Eliminates manual Jira → slide deck workflow |
+| "Leverage AI tools" | Built in Cursor/Claude Code; used as an MCP tool inside OpenCode |
+| "Problem-solving approach" | Identifies the retrieval-to-presentation gap |
+| "Product thinking" | Clear persona, user story, acceptance criteria, out-of-scope boundaries |
+| "Rapid prototyping" | Two Python files + a small React app, no deployment, mock data |
+| "GitHub Repository + README" | Explicit deliverable, plus CI-built releases |
+| "Working application" | Live demo via MCP Inspector + OpenCode + React dashboard, distributed as one executable |
+| "AI prompts or workflow" | Tool descriptions and build plan included in README |
+
+---
+
+## 12. One-Line Pitch (For the Video)
+
+> *"I didn't build a dashboard. I built an MCP server that lets any AI agent fetch Jira data and render a React health dashboard on demand — packaged as a single executable for any OS. The AI client is the UI. The tools are the product."*
+
+---
+
+*End of Requirements Document — Part 11*
