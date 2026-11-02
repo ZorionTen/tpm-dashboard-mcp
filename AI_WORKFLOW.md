@@ -10,6 +10,7 @@ This project was designed and coded almost entirely through AI-assisted iteratio
 | **Google Stitch** (text-to-UI) | The dashboard's visual design — project *"Project Manager UI Dashboard"* (dashboard + PDF layout screens), ported to React + MUI |
 | **MCP Inspector** | Manual tool testing (`npx @modelcontextprotocol/inspector …`) |
 | **Playwright** | Headless PDF rendering (shipped in the binary) + scripted UI verification |
+| **ElevenLabs** | AI voice-over for the walkthrough video narration |
 | **GitHub Actions** | Cross-platform release builds (Linux/Windows/macOS) on every `v*` tag |
 
 The original requirements are kept in [REQ.md](REQ.md) (superseded by the README — kept for provenance).
