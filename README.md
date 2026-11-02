@@ -142,7 +142,7 @@ Edit Claude Desktop's config file:
 ```
 
 - Windows: full path, e.g. `"C:\\Tools\\tpm-dashboard-mcp.exe"`.
-- **Fully quit and reopen Claude Desktop**, start the app (`./start.sh`), then ask for a dashboard. The 🔨 icon shows `tpm-dashboard` when connected.
+- **Fully quit and reopen Claude Desktop**, start the app (`tpm-dashboard-mcp app`), then ask for a dashboard. The 🔨 icon shows `tpm-dashboard` when connected.
 
 Cursor and any other MCP client work the same way: command = the executable, args = `["start"]`, transport = stdio.
 
