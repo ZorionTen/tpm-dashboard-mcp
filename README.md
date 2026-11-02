@@ -162,8 +162,13 @@ pyinstaller --onefile --name tpm-dashboard-mcp --add-data "frontend/dist:fronten
 
 # Windows (CMD) — note the semicolon
 pyinstaller --onefile --name tpm-dashboard-mcp --add-data "frontend/dist;frontend" main.py
+```
 
-./dist/tpm-dashboard-mcp start         # one command: mock Jira + MCP together
+**`dist/tpm-dashboard-mcp` is a single executable file** (~46 MB ELF binary on Linux, `.exe` on Windows) — the Python interpreter, all three Python modules, every pip dependency, and the built React frontend are packed inside it by PyInstaller. No Python or Node installation is needed to run it:
+
+```bash
+./dist/tpm-dashboard-mcp start        # one file → everything runs
+```
 ```
 
 ### Cross-platform release (CI)
@@ -178,6 +183,38 @@ git push origin main --tags
 ```
 
 ---
+
+## Logging & `--debug`
+
+Every start prints a banner to **stderr** (stdout belongs to the MCP protocol) telling you what runs where:
+
+```
+[tpm-dashboard] MCP transport : stdio (no port/URL — your AI client spawns this process)
+[tpm-dashboard] Mock Jira API : http://127.0.0.1:8000/rest/api/3/search
+[tpm-dashboard] Dashboard UI  : http://localhost:5173 (served after generate_dashboard)
+[tpm-dashboard] mode          : release — embedded static server
+[tpm-dashboard] logging       : stderr only; normal (use --debug for verbose)
+[tpm-dashboard] Mock Jira API : auto-starting detached: ... → pid 1234, waiting for http://127.0.0.1:8000 ...
+[tpm-dashboard]               → ready: http://127.0.0.1:8000/rest/api/3/search
+[tpm-dashboard] Dashboard     : ready → http://localhost:5173  (velocity 44.8%, ...)
+```
+
+Normal mode always prints: the banner, mock-Jira auto-start/ready (with pid), dashboard URL when generated, and any errors.
+
+**`--debug` adds verbose logging:** every HTTP request/response, payload metrics (issues/points/velocity), Vite spawn timing, embedded-server start/reuse, browser-open result, and each HTTP request served to the React app:
+
+```bash
+./dist/tpm-dashboard-mcp --debug start
+python main.py --debug start          # from source
+```
+
+The flag can go anywhere in the args. To debug your MCP client connection, add it to the config:
+
+```json
+"command": ["/path/tpm-dashboard-mcp", "--debug", "start"]
+```
+
+The client's MCP logs (OpenCode: MCP logs; Claude Desktop: `~/Library/Logs/Claude/mcp*.log` on macOS) then show exactly what the server did.
 
 ## The two tools
 
@@ -195,6 +232,7 @@ mock_jira.py                      FastAPI mock Jira (5 issues, port 8000)
 mcp_server.py                     MCPServer: two tools over stdio + embedded static server
 main.py                           CLI entry: start | mock-jira | mcp (used by dev and packaging)
 start.sh                          One-command launcher (binary → ~/.local/bin → source fallback)
+dist/tpm-dashboard-mcp            The single executable file (gitignored — built via PyInstaller/CI)
 frontend/                         Vite + React app (App → MetricCard, IssueTable)
 .github/workflows/release.yml     Release: PyInstaller on Linux/Windows/macOS
 REQ.MD                            Requirements document

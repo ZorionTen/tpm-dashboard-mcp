@@ -177,7 +177,8 @@ Visual style: dark background, clean sans-serif, card-based metrics. Rendering h
 | Distribution | GitHub Releases: one single-file executable per OS (Linux x86_64, Windows x86_64, macOS arm64), built by CI on every `v*` tag |
 | Portability | Runs on macOS, Linux, Windows (anywhere Python runs) |
 | No external services | No real Jira, no cloud, no API keys |
-| Code size | Python under 250 lines across all files; React frontend small and componentized |
+| Code size | Python under 300 lines across all files; React frontend small and componentized |
+| Logging | Startup banner (transport, addresses, mode) on stderr always; `--debug` for verbose tool/HTTP logging; stdout reserved for the MCP protocol |
 
 ---
 
