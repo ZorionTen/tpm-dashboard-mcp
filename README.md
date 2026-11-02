@@ -251,7 +251,7 @@ Dashboard shows: metric cards, Milestone Status, Risks & Mitigations (severity c
 ## Project layout
 
 ```
-mock_jira.py                      FastAPI mock Jira — 4 sprint datasets, one random per request (port 8000)
+mock_jira.py                      Mock Jira REST API — faithful v3 subset (JQL search, issue, agile sprints), live-evolving board (port 8000)
 dashboard.py                      the app runtime: dashboard server (:5173), payload file, app lifecycle
 mcp_server.py                     MCPServer: two tools over stdio
 main.py                           CLI entry: app | start | mcp | mock-jira

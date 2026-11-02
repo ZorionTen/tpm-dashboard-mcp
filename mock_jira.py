@@ -98,21 +98,44 @@ TRANSITIONS = [("To Do", "In Progress", 0.28), ("In Progress", "Done", 0.22),
                ("In Progress", "Blocked", 0.07), ("Blocked", "In Progress", 0.18)]
 
 def _evolve() -> None:
+    """Evolve the active sprint. Guarantees at least one visible metric change
+    per call: probabilistic transitions first, then a forced action if the
+    random pass changed nothing (so velocity/status always move)."""
     active = [it for it in ISSUES if it["sprint_id"] == 24]
     if active and all(i["status"] == "Done" for i in active):
         # sprint completed — the next one starts, so metrics keep moving forever
         for i in active:
             i["status"] = random.choices(["To Do", "In Progress", "Blocked", "Done"], [4, 3, 1, 2])[0]
             i["updated"] = _now()
+        return
+    changed = False
     for it in active:
         for src, dst, p in TRANSITIONS:
             if it["status"] == src and random.random() < p:
                 it["status"] = dst
                 it["updated"] = _now()
+                if dst == "Done":  # only completions move the velocity needle
+                    changed = True
                 break
-        if it["status"] != "Done" and random.random() < 0.12:  # points jitter
+        if not changed and it["status"] != "Done" and random.random() < 0.12:  # points jitter
             it["points"] = max(1, it["points"] + random.choice([-1, 1]))
             it["updated"] = _now()
+            changed = True
+    if changed:
+        return
+    # nothing happened randomly — force one visible change
+    finishers = [i for i in active if i["status"] == "In Progress"]
+    jitterable = [i for i in active if i["status"] != "Done"]
+    if finishers:  # a task completes → done points and velocity move
+        it = random.choice(finishers)
+        it["status"] = "Done"
+    elif jitterable:  # scope adjustment → total points (and velocity) move
+        it = random.choice(jitterable)
+        it["points"] = max(1, it["points"] + random.choice([-1, 1]))
+    else:  # only transitions left (Blocked⇄In Progress etc.)
+        it = random.choice([i for i in active if i["status"] != "Done"])
+        it["status"] = "In Progress" if it["status"] == "Blocked" else "Blocked"
+    it["updated"] = _now()
 
 # --- pragmatic JQL: AND/OR groups over: project, sprint, status, statusCategory, assignee, labels, text ---
 def _clause_match(it: dict, clause: str) -> bool:
