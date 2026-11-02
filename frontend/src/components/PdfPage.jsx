@@ -139,6 +139,34 @@ export default function PdfPage({ data, stats, issues, printPending, onPrinted }
           </Box>
         </Box>
 
+        {/* Team Capacity */}
+        {(data.team_capacity || []).length > 0 && (
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                Team Capacity
+              </Typography>
+              <Box component="span" sx={{ ...mono, color: PAPER.muted }}>
+                assumed {data.team_capacity[0].capacity_pts} pts / person / sprint
+              </Box>
+            </Box>
+            {data.team_capacity.map((c) => {
+              const over = c.load_pct > 100
+              return (
+                <Box key={c.name} sx={{ display: 'grid', gridTemplateColumns: '130px 1fr 150px', gap: 1.5, alignItems: 'center', py: 0.6 }}>
+                  <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>{c.name}</Typography>
+                  <Box sx={{ height: 7, borderRadius: '2px', bgcolor: PAPER.higher, overflow: 'hidden' }}>
+                    <Box sx={{ height: '100%', width: `${Math.min(c.load_pct, 100)}%`, backgroundColor: over ? PAPER.err : PAPER.ok }} />
+                  </Box>
+                  <Typography sx={{ ...mono, fontSize: 11.5, color: over ? PAPER.err : PAPER.muted, textAlign: 'right' }}>
+                    {c.committed_pts}/{c.capacity_pts} pts ({c.load_pct}%) · {c.done_pts} done
+                  </Typography>
+                </Box>
+              )
+            })}
+          </Box>
+        )}
+
         {/* Risks / Wins columns */}
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
           <Box sx={{ bgcolor: PAPER.bg, border: `1px solid ${PAPER.higher}`, p: 2, borderRadius: '2px' }}>
