@@ -66,8 +66,6 @@ export default function PdfPage({ data, stats, issues, printPending, onPrinted }
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ...mono }}>
             <span style={{ color: PAPER.muted }}>SYS_ID: S24-HLTH-{sysDate}</span>
-            <span style={{ opacity: 0.4 }}>•</span>
-            <b>PAGE 01 / 01</b>
           </Box>
         </Box>
 
@@ -76,7 +74,6 @@ export default function PdfPage({ data, stats, issues, printPending, onPrinted }
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Label>Project Health Report</Label>
-              <Box component="span" sx={{ px: 1, py: 0.2, borderRadius: '2px', bgcolor: PAPER.higher, ...mono, fontWeight: 700, fontSize: 11 }}>REV 1.4</Box>
             </Box>
             <Typography component="h1" sx={{ mt: 0.75, fontSize: { xs: 24, md: 32 }, fontWeight: 700, letterSpacing: '-0.01em' }}>
               Sprint 24 Executive Status Report
@@ -88,7 +85,6 @@ export default function PdfPage({ data, stats, issues, printPending, onPrinted }
           <Box sx={{ textAlign: { xs: 'left', md: 'right' }, ...mono, color: PAPER.muted, display: 'flex', flexDirection: 'column', gap: 0.4 }}>
             <span><Label as="span">Authored:</Label> <span style={{ color: PAPER.fg }}>Technical Program Management</span></span>
             <span><Label as="span">Generated:</Label> <span style={{ color: PAPER.fg }}>{generated}</span></span>
-            <span><Label as="span">Target Release:</Label> <b style={{ color: PAPER.fg }}>2026-11-14 (v3.8.0)</b></span>
           </Box>
         </Box>
 
@@ -203,7 +199,7 @@ export default function PdfPage({ data, stats, issues, printPending, onPrinted }
             <Box component="thead">
               <tr>
                 {['Key', 'Summary & Deliverable', 'Status', 'Points'].map((h, i) => (
-                  <th key={h} style={{ bgcolor: PAPER.high, color: PAPER.muted, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', textAlign: i === 2 ? 'center' : i === 3 ? 'right' : 'left', padding: '10px 14px' }}>
+                  <th key={h} style={{ backgroundColor: PAPER.high, color: PAPER.muted, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', textAlign: i === 2 ? 'center' : i === 3 ? 'right' : 'left', padding: '10px 14px' }}>
                     {h}
                   </th>
                 ))}
@@ -225,7 +221,7 @@ export default function PdfPage({ data, stats, issues, printPending, onPrinted }
               })}
             </tbody>
             <tfoot>
-              <tr style={{ bgcolor: PAPER.high }}>
+              <tr style={{ backgroundColor: PAPER.high }}>
                 <td colSpan={2} style={{ padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, textTransform: 'uppercase', fontSize: 12 }}>
                   Sprint Total Scope Summary: {issues.length} Issues Tracked
                 </td>
@@ -236,35 +232,12 @@ export default function PdfPage({ data, stats, issues, printPending, onPrinted }
           </Box>
         </Box>
 
-        {/* Sign-off block (design chrome from the Stitch layout) */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3, pt: 2, mt: 1, borderTop: `1px solid ${PAPER.higher}` }}>
-          {[
-            ['Reviewed By', 'Marcus Vance, VP Eng', 'Engineering Leadership / Delivery Assurance'],
-            ['Product Sign-off', 'Claire Chen, Dir Product', 'Core Commerce & Identity Portfolio'],
-            ['Distribution List', 'EXEC-BOARD, ENG-LEAD, TPM-ORG', 'Automated PDF Dispatch via CI/CD Kernel'],
-          ].map(([label, name, sub]) => (
-            <Box key={label} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              <Label>{label}</Label>
-              <Box sx={{ minHeight: 30, display: 'flex', alignItems: 'flex-end' }}>
-                <Typography sx={{ fontSize: 15, fontWeight: 600, fontFamily: label === 'Distribution List' ? "'JetBrains Mono', monospace" : 'inherit' }}>
-                  {name}
-                </Typography>
-              </Box>
-              <Typography sx={{ fontSize: 11.5, color: PAPER.muted }}>{sub}</Typography>
-            </Box>
-          ))}
-        </Box>
-
         {/* Running footer */}
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1, pt: 2, mt: 2, borderTop: `1px solid ${PAPER.higher}`, ...mono, color: PAPER.muted, fontSize: 11 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <span>Sprint 24 Governance Record</span><span>•</span>
-            <span>SHA256: 9e4f21b7c02</span><span>•</span>
+            <span>Sprint record</span><span>•</span>
+            <span>Generated {generated}</span><span>•</span>
             <span>Confidential &amp; Proprietary</span>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <span>ISO-27001 AUDIT COMPLIANT</span><span>•</span>
-            <b>PAGE 01 OF 01</b>
           </Box>
         </Box>
       </Box>
