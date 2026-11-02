@@ -72,8 +72,9 @@ The solution has four components:
 **Packaging:** one entry point (`main.py`) is compiled with PyInstaller into a single cross-platform executable per OS (`tpm-dashboard-mcp`), with subcommands:
 
 ```
-tpm-dashboard-mcp mock-jira   → FastAPI mock Jira on :8000
-tpm-dashboard-mcp mcp         → stdio MCP server (default)
+tpm-dashboard-mcp start         → auto-starts mock Jira if needed, then stdio MCP server (default; what AI clients run)
+tpm-dashboard-mcp mock-jira     → FastAPI mock Jira on :8000 (standalone)
+tpm-dashboard-mcp mcp           → stdio MCP server only (no auto-start)
 ```
 
 **Architecture flow (release mode):**
@@ -187,7 +188,7 @@ Visual style: dark background, clean sans-serif, card-based metrics. Rendering h
 | 1 | GitHub repository | Public repo: `tpm-dashboard-mcp` |
 | 2 | `mock_jira.py` | FastAPI mock Jira server |
 | 3 | `mcp_server.py` | MCP server with two tools |
-| 4 | `main.py` | Single CLI entry (`mock-jira` \| `mcp`) used by both dev and packaging |
+| 4 | `main.py` | Single CLI entry (`start` \| `mock-jira` \| `mcp`) used by both dev and packaging |
 | 5 | `frontend/` | Vite + React app (`src/App.jsx`, components, CSS) |
 | 6 | `requirements.txt` | Python dependencies |
 | 7 | `README.md` | Setup, architecture, how to connect to OpenCode/Claude Desktop, video link |

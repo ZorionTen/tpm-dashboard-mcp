@@ -24,8 +24,8 @@ React (Vite) dashboard: metrics cards + color-coded issue table
 
 | Component | Tech | Start |
 |---|---|---|
-| Mock Jira API | Python + FastAPI | `tpm-dashboard-mcp mock-jira` (port 8000) |
-| MCP server | Python + `mcp` SDK v2 (stdio) | `tpm-dashboard-mcp mcp` (spawned by your AI client) |
+| Mock Jira API | Python + FastAPI | auto-started by `tpm-dashboard-mcp start` (port 8000) |
+| MCP server | Python + `mcp` SDK v2 (stdio) | `tpm-dashboard-mcp start` (spawned by your AI client) |
 | Frontend | Vite + React, plain CSS | served on port 5173 (embedded or Vite dev) |
 
 ---
@@ -51,24 +51,22 @@ xattr -d com.apple.quarantine tpm-dashboard-mcp-macos-arm64
 
 Windows: rename to `tpm-dashboard-mcp.exe` if you like, keep it anywhere.
 
-**2. Start the mock Jira** (leave this terminal running):
+**2. Connect your AI client** (see below). That's it — one command starts everything:
 
-```bash
-tpm-dashboard-mcp mock-jira        # → http://127.0.0.1:8000/rest/api/3/search
-```
+The `start` subcommand (which AI clients run) **auto-starts the mock Jira** on port 8000 if it isn't already running, then serves MCP over stdio. No extra terminal needed.
 
-Verify: `curl http://127.0.0.1:8000/rest/api/3/search`
-
-**3. Connect your AI client** (see below), then ask it:
+Then ask your client:
 
 > *"Fetch the latest Jira data and generate a dashboard."*
 
 Your browser opens `http://localhost:5173` with the sprint health dashboard.
 
+Prefer running the data server yourself? `tpm-dashboard-mcp mock-jira` (standalone) or `python main.py mock-jira` (source).
+
 **Try it without an AI client** (MCP Inspector):
 
 ```bash
-npx @modelcontextprotocol/inspector tpm-dashboard-mcp mcp
+npx @modelcontextprotocol/inspector tpm-dashboard-mcp start
 # In the Inspector UI: run fetch_jira_data → copy output →
 # run generate_dashboard with jira_json = that output
 ```
@@ -84,16 +82,15 @@ Add the MCP server to your OpenCode config — global (`~/.config/opencode/openc
   "mcp": {
     "tpm-dashboard": {
       "type": "local",
-      "command": ["/usr/local/bin/tpm-dashboard-mcp", "mcp"],
+      "command": ["/usr/local/bin/tpm-dashboard-mcp", "start"],
       "enabled": true
     }
   }
 }
 ```
 
-- `command` is the full invocation: absolute path to the executable + the `mcp` subcommand.
+- `command` is the full invocation: absolute path to the executable + the `start` subcommand (auto-starts the mock Jira, then serves MCP).
 - **Restart OpenCode** after saving.
-- Make sure `tpm-dashboard-mcp mock-jira` is running in a terminal.
 - Test: ask OpenCode *"Fetch the latest Jira data and generate a dashboard."*
 
 ## Connect to Claude Desktop
@@ -109,7 +106,7 @@ Edit Claude Desktop's config file:
   "mcpServers": {
     "tpm-dashboard": {
       "command": "/usr/local/bin/tpm-dashboard-mcp",
-      "args": ["mcp"]
+      "args": ["start"]
     }
   }
 }
@@ -119,7 +116,7 @@ Edit Claude Desktop's config file:
 - **Fully quit and reopen Claude Desktop.**
 - Start the mock Jira first, then ask Claude for a dashboard. The 🔨/tools icon shows `tpm-dashboard` when connected.
 
-Cursor and any other MCP client work the same way: command = the executable, args = `["mcp"]`, transport = stdio.
+Cursor and any other MCP client work the same way: command = the executable, args = `["start"]`, transport = stdio.
 
 ---
 
@@ -134,8 +131,10 @@ cd tpm-dashboard-mcp
 pip install -r requirements.txt        # mcp, fastapi, uvicorn
 cd frontend && npm install && cd ..    # Vite + React
 
+python main.py start                   # one command: auto-starts mock Jira + MCP server (stdio)
+# or manually, in two terminals:
 python main.py mock-jira               # terminal 1 — mock Jira on :8000
-python main.py mcp                     # terminal 2 — MCP server over stdio
+python main.py mcp                     # terminal 2 — MCP server only
 ```
 
 Dev mode differs from release mode in one way: `generate_dashboard` writes `frontend/public/data.json` and starts the Vite dev server (`npm run dev`, port 5173) instead of using the embedded server. The React app is identical.
@@ -160,7 +159,7 @@ pyinstaller --onefile --name tpm-dashboard-mcp --add-data "frontend/dist:fronten
 # Windows (CMD) — note the semicolon
 pyinstaller --onefile --name tpm-dashboard-mcp --add-data "frontend/dist;frontend" main.py
 
-./dist/tpm-dashboard-mcp mock-jira      # or: ... mcp
+./dist/tpm-dashboard-mcp start         # one command: mock Jira + MCP together
 ```
 
 ### Cross-platform release (CI)
@@ -190,7 +189,7 @@ Dashboard shows: total points, done points, velocity %, issue count, completed i
 ```
 mock_jira.py                      FastAPI mock Jira (5 issues, port 8000)
 mcp_server.py                     MCPServer: two tools over stdio + embedded static server
-main.py                           CLI entry: mock-jira | mcp (used by dev and packaging)
+main.py                           CLI entry: start | mock-jira | mcp (used by dev and packaging)
 frontend/                         Vite + React app (App → MetricCard, IssueTable)
 .github/workflows/release.yml     Release: PyInstaller on Linux/Windows/macOS
 REQ.MD                            Requirements document
@@ -200,7 +199,7 @@ REQ.MD                            Requirements document
 
 | Symptom | Fix |
 |---|---|
-| `fetch_jira_data` returns an error | Mock Jira isn't running → start `tpm-dashboard-mcp mock-jira` |
+| `fetch_jira_data` returns an error | Mock Jira didn't auto-start (port 8000 blocked) → run `tpm-dashboard-mcp mock-jira` manually and check `lsof -i :8000` |
 | Browser shows "frontend not built" (source mode) | Run `cd frontend && npm run build` |
 | Dashboard page shows "No data yet" | Call `generate_dashboard` first — nothing is served until it runs |
 | Port 5173 already in use | Stop the other process (`lsof -i :5173`) or kill a stale Vite dev server |
