@@ -155,7 +155,8 @@ def _clause_match(it: dict, clause: str) -> bool:
     if field == "statuscategory":
         return STAT_CAT[it["status"]] == val.lower()
     if field == "assignee":
-        return "currentuser" in val.lower() or it["assignee"].lower() == val.lower()
+        who = "Zaid Rahman" if "currentuser" in val.lower() else val  # /rest/api/3/myself
+        return it["assignee"].lower() == who.lower()
     if field == "labels":
         return val in it["labels"]
     if field in ("text", "summary"):
