@@ -77,7 +77,7 @@ npx @modelcontextprotocol/inspector tpm-dashboard-mcp mcp
 
 ## Connect to OpenCode
 
-Add the MCP server to `opencode.json` — global (`~/.config/opencode/opencode.json`) or per-project (`.opencode/opencode.json` / `opencode.json` in the repo):
+Add the MCP server to your OpenCode config — global (`~/.config/opencode/opencode.json` or `opencode.jsonc`) or project-level (`opencode.json` in the repo root):
 
 ```json
 {
@@ -91,7 +91,7 @@ Add the MCP server to `opencode.json` — global (`~/.config/opencode/opencode.j
 }
 ```
 
-- Use the absolute path to the executable (`command` + `args: ["mcp"]` is equivalent).
+- `command` is the full invocation: absolute path to the executable + the `mcp` subcommand.
 - **Restart OpenCode** after saving.
 - Make sure `tpm-dashboard-mcp mock-jira` is running in a terminal.
 - Test: ask OpenCode *"Fetch the latest Jira data and generate a dashboard."*
