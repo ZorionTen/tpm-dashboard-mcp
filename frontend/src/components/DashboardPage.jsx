@@ -22,6 +22,13 @@ export default function DashboardPage({
   const wins = splitLines(data?.key_wins)
   const milestone = data?.milestone_status || ''
   const blockers = issues.filter((i) => i.status === 'Blocked')
+  // A narrative card that ends up alone in the 2-column row spans full width
+  const narrativeVisible = [blockers.length > 0, risks.length > 0, wins.length > 0].filter(Boolean).length
+  const aloneLast = (idx) =>
+    narrativeVisible % 2 === 1 && idx === narrativeVisible - 1 ? { gridColumn: { md: 'span 2' } } : {}
+  const bIdx = 0
+  const rIdx = blockers.length ? 1 : 0
+  const wIdx = rIdx + (risks.length ? 1 : 0)
 
   return (
     <Box sx={{ maxWidth: 1280, mx: 'auto', px: { xs: 2, sm: 3 }, py: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -128,7 +135,7 @@ export default function DashboardPage({
       {(blockers.length > 0 || risks.length > 0 || wins.length > 0) && (
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
           {blockers.length > 0 && (
-            <SectionCard sx={{ borderLeft: '4px solid', borderLeftColor: '#ef4444' }}>
+            <SectionCard sx={{ borderLeft: '4px solid', borderLeftColor: '#ef4444', ...aloneLast(bIdx) }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, mb: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <span className="material-symbols-outlined" style={{ fontSize: 17, color: '#f85149' }}>block</span>
@@ -157,7 +164,7 @@ export default function DashboardPage({
           )}
 
           {risks.length > 0 && (
-            <SectionCard sx={{ borderLeft: '4px solid', borderLeftColor: '#ef4444' }}>
+            <SectionCard sx={{ borderLeft: '4px solid', borderLeftColor: '#ef4444', ...aloneLast(rIdx) }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, mb: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <span className="material-symbols-outlined" style={{ fontSize: 17, color: '#f85149' }}>warning</span>
@@ -188,7 +195,7 @@ export default function DashboardPage({
           )}
 
           {wins.length > 0 && (
-            <SectionCard sx={{ borderLeft: '4px solid', borderLeftColor: '#22c55e' }}>
+            <SectionCard sx={{ borderLeft: '4px solid', borderLeftColor: '#22c55e', ...aloneLast(wIdx) }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, mb: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <span className="material-symbols-outlined" style={{ fontSize: 17, color: '#3fb950' }}>verified</span>
