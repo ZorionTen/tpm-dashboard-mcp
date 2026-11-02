@@ -70,6 +70,28 @@ def derive_wins(issues: list) -> str:
     )
 
 
+CAPACITY_PTS = 8  # assumed per-person sprint capacity (documented in the README)
+
+
+def _capacity(issues: list) -> list:
+    """Per-person committed/done points vs an assumed 8-pt sprint capacity."""
+    by = {}
+    for i in issues:
+        name = (i.get("assignee") or "").strip() or "Unassigned"
+        e = by.setdefault(name, {"name": name, "committed_pts": 0, "done_pts": 0, "issues": 0})
+        p = int(i.get("story_points") or 0)
+        e["committed_pts"] += p
+        e["issues"] += 1
+        if i.get("status") == "Done":
+            e["done_pts"] += p
+    out = []
+    for e in by.values():
+        e["capacity_pts"] = CAPACITY_PTS
+        e["load_pct"] = round(e["committed_pts"] / CAPACITY_PTS * 100)
+        out.append(e)
+    return sorted(out, key=lambda x: -x["load_pct"])
+
+
 def build_payload(issues: list, goal: str = "", milestone_status: str = "",
                   risks_mitigations: str = "", key_wins: str = "") -> dict:
     """Build the dashboard payload. Empty risks/wins are DERIVED from the board itself
@@ -89,5 +111,6 @@ def build_payload(issues: list, goal: str = "", milestone_status: str = "",
         "key_wins": key_wins or derive_wins(issues),
         "risks_source": "agent" if risks_mitigations else "derived",
         "wins_source": "agent" if key_wins else "derived",
+        "team_capacity": _capacity(issues),
         "issues": issues,
     }

@@ -1,6 +1,7 @@
 import { Box, Paper, Typography } from '@mui/material'
 import KpiCard from './KpiCard'
 import IssueTable from './IssueTable'
+import TeamCapacityCard from './TeamCapacityCard'
 import { parseRisks, splitLines, sevColor } from '../utils'
 
 function SectionCard({ children, sx }) {
@@ -186,6 +187,9 @@ export default function DashboardPage({
           )}
         </Box>
       )}
+
+      {/* Team Capacity */}
+      <TeamCapacityCard capacity={data?.team_capacity} />
 
       <IssueTable issues={issues} totalPoints={stats.total_points} />
 
