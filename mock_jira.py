@@ -14,4 +14,18 @@ ISSUES = [
 
 @app.get("/rest/api/3/search")
 def search() -> dict:
-    return {"issues": ISSUES, "total": len(ISSUES)}
+    return {
+        "issues": ISSUES,
+        "total": len(ISSUES),
+        "milestone_status": "Authentication & Login API on track for the Nov 14 release",
+        "risks_mitigations": (
+            "- Payments integration blocked by vendor (HIGH): mitigated by feature-flagging "
+            "payments for launch, weekly vendor sync\n"
+            "- Dashboard widgets slipping (MED): pulling in one engineer next sprint"
+        ),
+        "key_wins": (
+            "- Auth flow shipped ahead of schedule\n"
+            "- Login API passed security review with zero findings\n"
+            "- Zero Sev-1 incidents this sprint"
+        ),
+    }

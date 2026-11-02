@@ -62,8 +62,14 @@ def fetch_jira_data() -> str:
 
 
 @mcp.tool()
-def generate_dashboard(jira_json: str, open_browser: bool = True) -> str:
-    """Generate an HTML sprint health dashboard from Jira JSON and open it in the browser. Input: jira_json (string) — a JSON array of issues or an object with an 'issues' array; open_browser (bool, optional, default true) — set false to skip opening the browser. Computes total/done points and velocity %, hands the payload to the running app, and returns the dashboard URL."""
+def generate_dashboard(
+    jira_json: str,
+    open_browser: bool = True,
+    milestone_status: str = "",
+    risks_mitigations: str = "",
+    key_wins: str = "",
+) -> str:
+    """Generate an HTML sprint health dashboard from Jira JSON and open it in the browser. Input: jira_json (string) — a JSON array of issues or an object with an 'issues' array (the object may also carry milestone_status, risks_mitigations, key_wins, used as defaults); open_browser (bool, optional, default true) — set false to skip opening the browser; milestone_status (string, optional, single line), risks_mitigations (string, optional, multi-line), key_wins (string, optional, multi-line) — narrative sections shown on the dashboard (empty fields are omitted). Computes total/done points and velocity %, hands the payload to the running app, and returns the dashboard URL."""
     error = None
     payload: dict
     try:
@@ -72,13 +78,27 @@ def generate_dashboard(jira_json: str, open_browser: bool = True) -> str:
         if not isinstance(issues, list):
             raise ValueError("expected a JSON array of issues or an object with an 'issues' array")
         payload = _build_payload(issues)
+        # narrative fields: explicit params win, else default from the jira_json object
+        if isinstance(data, dict):
+            payload["milestone_status"] = milestone_status or data.get("milestone_status") or ""
+            payload["risks_mitigations"] = risks_mitigations or data.get("risks_mitigations") or ""
+            payload["key_wins"] = key_wins or data.get("key_wins") or ""
+        else:
+            payload["milestone_status"] = milestone_status
+            payload["risks_mitigations"] = risks_mitigations
+            payload["key_wins"] = key_wins
         _dbg(f"payload built: {payload['issue_count']} issues, {payload['total_points']} pts total, "
-             f"{payload['done_points']} pts done, velocity {payload['velocity']}%")
+             f"{payload['done_points']} pts done, velocity {payload['velocity']}%, "
+             f"milestone={'yes' if payload['milestone_status'] else 'no'}, "
+             f"risks={'yes' if payload['risks_mitigations'] else 'no'}, "
+             f"wins={'yes' if payload['key_wins'] else 'no'}")
     except Exception as e:
         error = f"invalid jira_json: {e}"
         _log(f"generate_dashboard ERROR: {error}")
         payload = {"error": error, "issue_count": 0, "total_points": 0, "done_points": 0,
-                   "velocity": 0, "completed_count": 0, "issues": []}
+                   "velocity": 0, "completed_count": 0, "issues": [],
+                   "milestone_status": milestone_status, "risks_mitigations": risks_mitigations,
+                   "key_wins": key_wins}
 
     f = payload_path()
     f.write_text(json.dumps(payload))

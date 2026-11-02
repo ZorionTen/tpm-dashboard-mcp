@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import MetricCard from './components/MetricCard.jsx'
 import IssueTable from './components/IssueTable.jsx'
+import Narrative from './components/Narrative.jsx'
 
 export default function App() {
   const [data, setData] = useState(null)
@@ -36,6 +37,18 @@ export default function App() {
             <MetricCard label="Issue Count" value={data.issue_count} />
             <MetricCard label="Completed Issues" value={data.completed_count} />
           </section>
+
+          {data.milestone_status && (
+            <section className="panel milestone-panel">
+              <h2>Milestone Status</h2>
+              <p className="milestone">{data.milestone_status}</p>
+            </section>
+          )}
+          {data.risks_mitigations && (
+            <Narrative title="Risks & Mitigations" text={data.risks_mitigations} tone="risks" />
+          )}
+          {data.key_wins && <Narrative title="Key Wins" text={data.key_wins} tone="wins" />}
+
           <IssueTable issues={data.issues} />
         </>
       )}

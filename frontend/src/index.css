@@ -145,6 +145,51 @@ h1 {
   color: #f85149;
 }
 
+.panel {
+  background: #181b22;
+  border: 1px solid #262b36;
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+}
+
+.panel h2 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #7a8194;
+}
+
+.panel ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.panel li {
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.panel.risks {
+  border-left: 3px solid #f85149;
+}
+
+.panel.wins {
+  border-left: 3px solid #3fb950;
+}
+
+.milestone-panel {
+  border-left: 3px solid #2f81f7;
+}
+
+.milestone {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #a5b3c9;
+}
+
 footer {
   margin-top: 32px;
   color: #7a8194;
