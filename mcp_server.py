@@ -53,7 +53,10 @@ def fetch_jira_data() -> str:
     """Fetch current sprint issues from the mock Jira REST API. No input. Returns JSON with issues (key, summary, status, story_points). Requires the app (./start.sh) — auto-starts it if not running."""
     try:
         _dbg(f"GET {JIRA_URL}")
-        with urllib.request.urlopen(JIRA_URL, timeout=5) as r:
+        # Never proxy localhost — the MCP client's env may set a system proxy
+        # that mangles loopback responses.
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(JIRA_URL, timeout=5) as r:
             body = r.read().decode()
         try:
             _dbg(f"→ 200, {len(json.loads(body).get('issues', []))} issues, {len(body)} bytes")
@@ -64,7 +67,8 @@ def fetch_jira_data() -> str:
         _log(f"fetch_jira_data FAILED: {e}")
         ensure_app()
         try:
-            with urllib.request.urlopen(JIRA_URL, timeout=5) as r:
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(JIRA_URL, timeout=5) as r:
                 return r.read().decode()
         except Exception as e2:
             return f"ERROR: mock Jira unreachable at {JIRA_URL} — start the app with ./start.sh ({e2})"
@@ -146,12 +150,15 @@ async def update_pdf() -> str:
     try:
         # In a frozen (PyInstaller) build Playwright looks for browsers inside the
         # bundle — point it at the standard user-level browser cache instead.
+        # Loopback must never go through a system proxy.
         from pathlib import Path as _Path
 
         os.environ.setdefault(
             "PLAYWRIGHT_BROWSERS_PATH",
             str(_Path.home() / ".cache" / "ms-playwright"),
         )
+        os.environ["NO_PROXY"] = "127.0.0.1,localhost,::1"
+        os.environ["no_proxy"] = "127.0.0.1,localhost,::1"
         from playwright.async_api import async_playwright
 
         async with async_playwright() as p:

@@ -108,7 +108,7 @@ AI client ── spawns ── MCP server (stdio) ── fetch / generate ─┘
 | Purpose | Simulate a Jira REST endpoint for local testing |
 | Tech | Python + FastAPI + Uvicorn |
 | Endpoint | `GET /rest/api/3/search` |
-| Response | JSON with 5 issues (key, summary, status, story_points) plus sprint narrative fields: `milestone_status` (single line), `risks_mitigations` (multi-line), `key_wins` (multi-line) — sample data for the dashboard |
+| Response | JSON from **one of 4 randomly selected sprint datasets** per request (auth, payments, mobile beta, data migration), each with 5 issues (key, summary, status, story_points) plus narrative fields: `milestone_status` (single line), `risks_mitigations` (multi-line), `key_wins` (multi-line) |
 | Port | 8000 |
 | Auth | None (prototype only) |
 
