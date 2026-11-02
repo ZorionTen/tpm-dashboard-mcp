@@ -47,18 +47,16 @@ The UI is the Google Stitch project **"Project Manager UI Dashboard"** ported to
 
 The [Releases page](../../releases/latest) ships **one executable per OS** (Linux, Windows, macOS) — no Python or Node needed to run it (Node is only optional, for the PDF tools and Inspector, noted below). No clone, **no `start.sh`** (that script only exists for source checkouts).
 
-**1. Download** the executable for your OS from the [latest release](../../releases/latest), **2. install it to a fixed path** (the client configs below use `/usr/local/bin`):
+**1. Download** the executable for your OS from the [latest release](../../releases/latest):
 
-| OS | File | Install |
-|---|---|---|
-| Linux x86_64 | `tpm-dashboard-mcp-linux-x86_64` | see below |
-| Windows x86_64 | `tpm-dashboard-mcp-windows-x86_64.exe` | see below — runs as-is |
-| macOS (Apple Silicon) | `tpm-dashboard-mcp-macos-arm64` | see below |
-| macOS (Intel) | — no binary | [build from source](#build-and-run-from-source-development) |
+| OS | File |
+|---|---|
+| Linux x86_64 | `tpm-dashboard-mcp-linux-x86_64` |
+| Windows x86_64 | `tpm-dashboard-mcp-windows-x86_64.exe` |
+| macOS (Apple Silicon) | `tpm-dashboard-mcp-macos-arm64` |
+| macOS (Intel) | no binary — [build from source](#build-and-run-from-source-development) |
 
-**2. Install it to a fixed path** (the client configs below use `/usr/local/bin`):
-
-Run these **in the directory you downloaded to** (e.g. `~/Downloads`):
+**2. Install it to a fixed path** — run these **in the directory you downloaded to** (e.g. `~/Downloads`); the client configs below use `/usr/local/bin`:
 
 ```bash
 # Linux
