@@ -121,9 +121,10 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/data.json":
             f = payload_path()
             if not f.is_file():
-                return self._send(
-                    json.dumps({"error": "no data yet - ask your agent to generate a dashboard"}).encode(),
-                    "application/json")
+                # First open with no agent run: pull the live board once and serve it,
+                # so a reviewer without an MCP client still sees a real dashboard.
+                _log("data.json : no payload yet — first sync from live Jira")
+                return self._sync()
             return self._send(f.read_bytes(), "application/json")
         f = static_dir() / (path.lstrip("/") or "index.html")
         if not f.is_file():
