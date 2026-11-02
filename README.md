@@ -314,4 +314,4 @@ REQ.md                            Requirements document (local project spec)
 
 ---
 
-Prototype · built with Cursor/Claude Code + OpenCode · Part 11
+Prototype (not production) · Built with **OpenCode on MiMo-v2.6 Flash** — UI designed in **Google Stitch**, ported to React + MUI · Part 11

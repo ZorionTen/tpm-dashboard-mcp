@@ -315,7 +315,7 @@ These are notes for the developer (or AI coding assistant). They describe *what*
 | Brief Requirement | How This Delivers |
 |---|---|
 | "Improves productivity of a TPM" | Eliminates manual Jira → slide deck workflow |
-| "Leverage AI tools" | Built in Cursor/Claude Code; used as an MCP tool inside OpenCode |
+| "Leverage AI tools" | Built with OpenCode on MiMo-v2.6 Flash; shipped as an MCP tool inside OpenCode (UI designed in Google Stitch) |
 | "Problem-solving approach" | Identifies the retrieval-to-presentation gap |
 | "Product thinking" | Clear persona, user story, acceptance criteria, out-of-scope boundaries |
 | "Rapid prototyping" | Two Python files + a small React app, no deployment, mock data |
