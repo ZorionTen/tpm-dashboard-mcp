@@ -67,7 +67,7 @@ Technical Program Managers waste time manually pulling sprint data from Jira int
 
 The solution has four components:
 
-1. **The app** — one foreground process (started by `./start.sh`) hosting two servers: a mock Jira API (fake sprint data, no real Jira credentials) and the dashboard web server. Prints its addresses on start; Ctrl+C stops both.
+1. **The app** — one foreground process, started with a single command (`tpm-dashboard-mcp app`; `./start.sh` in source checkouts), hosting two servers: a mock Jira API (fake sprint data, no real Jira credentials) and the dashboard web server. Prints its addresses on start; Ctrl+C stops both.
 2. **An MCP server** — exposes two tools to any MCP-compatible AI client: one to fetch Jira data, one to hand the payload to the app and return the dashboard URL. Spawned by the AI client over stdio on connect ("MCP connects"); attaches to a running app, auto-starts one if the user skipped step 1.
 3. **A React frontend** — a Vite + React app that reads the generated JSON and renders the health dashboard. Its production build is bundled into the executable and served by the app.
 4. **The user's AI client** — OpenCode (or Claude Desktop, Cursor) — acts as the control plane. The user asks in natural language; the client calls the tools.
@@ -75,7 +75,7 @@ The solution has four components:
 **Packaging:** one entry point (`main.py`) is compiled with PyInstaller into a single cross-platform executable per OS (`tpm-dashboard-mcp`), with subcommands:
 
 ```
-tpm-dashboard-mcp app           → THE APP: mock Jira :8000 + dashboard :5173, foreground (what ./start.sh runs)
+tpm-dashboard-mcp app           → THE APP: mock Jira :8000 + dashboard :5173, foreground (the single run command)
 tpm-dashboard-mcp start         → stdio MCP server (default; what AI clients run) — attaches to the app, auto-starts it if down
 tpm-dashboard-mcp mock-jira     → FastAPI mock Jira on :8000 (standalone)
 tpm-dashboard-mcp mcp           → stdio MCP server only (starts nothing)
@@ -84,7 +84,7 @@ tpm-dashboard-mcp mcp           → stdio MCP server only (starts nothing)
 **Architecture flow (the target user flow):**
 
 ```
-1. User starts the app        ./start.sh        → mock Jira :8000 + dashboard :5173 (stays running)
+1. User starts the app        tpm-dashboard-mcp app    → mock Jira :8000 + dashboard :5173 (stays running)
 2. User starts Claude/OpenCode (config: <executable> start)
                              → client spawns MCP server (stdio) → connects, attaches to the app
 3. User asks for an update    → agent calls fetch_jira_data → JSON
@@ -93,7 +93,7 @@ tpm-dashboard-mcp mcp           → stdio MCP server only (starts nothing)
 ```
 
 ```
-User ── ./start.sh ──▶ APP PROCESS ── mock Jira :8000 ──▶ React dashboard :5173
+User ── tpm-dashboard-mcp app ──▶ APP PROCESS ── mock Jira :8000 ──▶ React dashboard :5173
                           ▲                                    ▲
 AI client ── spawns ── MCP server (stdio) ── fetch / generate ─┘
                                           (shared payload file ~/.cache/tpm-dashboard/dashboard_data.json)
