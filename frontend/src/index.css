@@ -42,6 +42,7 @@ body {
   .no-print {
     display: none !important;
   }
+  html,
   body {
     background: #fff !important;
   }

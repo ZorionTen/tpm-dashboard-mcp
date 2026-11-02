@@ -40,7 +40,7 @@ export default function PdfPage({ data, stats, issues, printPending, onPrinted }
   }
 
   return (
-    <Box sx={{ py: { xs: 2, print: 0 } }}>
+    <Box sx={{ py: { xs: 2 }, '@media print': { py: 0 } }}>
       <Box
         component="article"
         sx={{
@@ -49,13 +49,12 @@ export default function PdfPage({ data, stats, issues, printPending, onPrinted }
           bgcolor: PAPER.bg,
           color: PAPER.fg,
           p: { xs: 2.5, md: 5 },
-          print: { p: 3, boxShadow: 'none', maxWidth: 'none', width: '100%' },
           boxShadow: '0 4px 24px rgba(0,0,0,0.35)',
           borderRadius: '2px',
           display: 'flex',
           flexDirection: 'column',
           gap: 2.5,
-          '@media print': { boxShadow: 'none', p: 3, maxWidth: 'none' },
+          '@media print': { p: 0, boxShadow: 'none', maxWidth: 'none', width: '100%', gap: 2 },
         }}
       >
         {/* Running header */}
