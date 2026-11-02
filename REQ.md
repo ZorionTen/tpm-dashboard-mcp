@@ -1,11 +1,11 @@
-# Part 11 — AI Productivity Utility: Requirements Document
+# AI Productivity Utility: Requirements Document
 
 **Product:** TPM Dashboard MCP Server
 **Chosen Option:** Option E (Project Health Dashboard) — delivered as an MCP tool, frontend in React, shipped as a single cross-platform executable
 **Author:** Zaid
 **Date:** November 2026
 **Status:** Prototype (MVP) — **not a production application** (mock data, no auth, no persistence, no deployment; see Out of Scope)
-**Audience:** Developer / AI-assisted build (Cursor, Claude Code)
+**Audience:** Developer / AI-assisted build (OpenCode)
 
 ---
 
@@ -33,7 +33,7 @@ Technical Program Managers waste time manually pulling sprint data from Jira int
 
 ## 3. User Story
 
-**ID:** US-P11-01
+**ID:** US-01
 **Title:** Generate a live sprint dashboard from Jira via an AI agent
 
 **As a** Technical Program Manager,
@@ -310,25 +310,10 @@ These are notes for the developer (or AI coding assistant). They describe *what*
 
 ---
 
-## 11. Why This Qualifies for Full Marks
-
-| Brief Requirement | How This Delivers |
-|---|---|
-| "Improves productivity of a TPM" | Eliminates manual Jira → slide deck workflow |
-| "Leverage AI tools" | Built with OpenCode on MiMo-v2.6 Flash; shipped as an MCP tool inside OpenCode (UI designed in Google Stitch) |
-| "Problem-solving approach" | Identifies the retrieval-to-presentation gap |
-| "Product thinking" | Clear persona, user story, acceptance criteria, out-of-scope boundaries |
-| "Rapid prototyping" | Two Python files + a small React app, no deployment, mock data |
-| "GitHub Repository + README" | Explicit deliverable, plus CI-built releases |
-| "Working application" | Live demo via MCP Inspector + OpenCode + React dashboard, distributed as one executable |
-| "AI prompts or workflow" | Tool descriptions and build plan included in README |
-
----
-
-## 12. One-Line Pitch (For the Video)
+## 11. One-Line Pitch
 
 > *"I didn't build a dashboard. I built an MCP server that lets any AI agent fetch Jira data and render a React health dashboard on demand — packaged as a single executable for any OS. The AI client is the UI. The tools are the product."*
 
 ---
 
-*End of Requirements Document — Part 11*
+*End of Requirements Document*

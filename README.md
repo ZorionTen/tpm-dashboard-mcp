@@ -2,7 +2,7 @@
 
 > An MCP server that lets any AI agent fetch Jira data and render a React sprint health dashboard on demand. The AI client is the UI. The tools are the product.
 
-**Part 11 — AI Productivity Utility · Prototype (MVP)**
+**AI Productivity Utility · Prototype (MVP)**
 
 > **⚠️ Prototype — not a production application.** Mock Jira data, no authentication, no persistence, no database, no deployment, no SLAs. It demonstrates the concept end-to-end and nothing more.
 
@@ -314,4 +314,4 @@ REQ.md                            Requirements document (local project spec)
 
 ---
 
-Prototype (not production) · Built with **OpenCode on MiMo-v2.6 Flash** — UI designed in **Google Stitch**, ported to React + MUI · Part 11
+Prototype (not production) · Built with **OpenCode on MiMo-v2.6 Flash** — UI designed in **Google Stitch**, ported to React + MUI
